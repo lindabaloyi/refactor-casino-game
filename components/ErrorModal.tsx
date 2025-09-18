@@ -1,7 +1,14 @@
 import React from 'react';
 import { View, Text, Modal, TouchableOpacity, StyleSheet } from 'react-native';
 
-const ErrorModal = ({ visible, title, message, onClose }) => {
+type ErrorModalProps = {
+  visible: boolean;
+  title: string;
+  message: string;
+  onClose: () => void;
+};
+
+const ErrorModal: React.FC<ErrorModalProps> = ({ visible, title, message, onClose }) => {
   return (
     <Modal
       visible={visible}
