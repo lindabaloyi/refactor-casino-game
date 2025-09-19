@@ -84,7 +84,7 @@ const TableCardsSection = React.memo(({
   onDragEnd,
   onDragMove,
   isDragging = false
-}: { tableCards: any[], onDropOnCard: (draggedItem: any, targetInfo: any) => void, currentPlayer: number, onCancelStack: (stack: any) => void, onConfirmStack: (stack: any) => void, onCardPress?: (card: any, source: string) => void, onDragStart: (card: any) => void, onDragEnd: (card: any, position: any) => void, onDragMove: (card: any, position: any) => void, isDragging: boolean }) => (
+}: { tableCards: any[], onDropOnCard: (draggedItem: any, targetInfo: any) => void, currentPlayer: number, onCancelStack: (stack: any) => void, onConfirmStack: (stack: any) => void, onCardPress?: (card: any, source: string) => void, onDragStart: (card: any) => void, onDragEnd: (args?: any) => void, onDragMove: (args?: any) => void, isDragging: boolean }) => (
   <View style={styles.tableCardsSection}>
     <TableCards
       cards={tableCards}
@@ -220,21 +220,34 @@ function GameBoard({ onRestart }: { onRestart: () => void }) {
     setDraggedCard(card);
   }, []);
 
-  const handleDragMove = useCallback((card, position) => {
+  const handleDragMove = useCallback((args?: any) => {
     // TODO: Add drop zone highlighting logic if needed
+    // args could contain { card, position } or just be the card
   }, []);
 
-  const handleDragEnd = useCallback((draggedItem, dropPosition) => {
+  const handleDragEnd = useCallback((args?: any) => {
+    // Handle both old format (two params) and new format (single args object)
+    let draggedItem, dropPosition;
+    
+    if (args && typeof args === 'object' && args.draggedItem) {
+      // New format: { draggedItem, dropPosition }
+      draggedItem = args.draggedItem;
+      dropPosition = args.dropPosition;
+    } else {
+      // Old format: just the dragged item
+      draggedItem = args;
+      dropPosition = {};
+    }
+    
     // Check if drop was handled by a component drop zone
-    // Component-based drops will set a flag to prevent trail logic
-    if (dropPosition.handled) {
+    if (dropPosition && dropPosition.handled) {
       // Reset drag state only
       setDraggedCard(null);
       return;
     }
     
     // Only trail if card came from hand, not from temp stacks
-    if (draggedItem.source === 'hand') {
+    if (draggedItem && draggedItem.source === 'hand') {
       handleTrailCard(draggedItem.card, gameState.currentPlayer, dropPosition);
     }
     
@@ -247,7 +260,10 @@ function GameBoard({ onRestart }: { onRestart: () => void }) {
     // Use the modal system to trigger end game action
     const endGameAction = {
       type: 'end_game',
-      payload: {} // No payload needed for end game
+      label: 'End Game',
+      payload: {
+        draggedItem: { source: 'hand' as const, player: 0 }
+      }
     };
     handleModalAction(endGameAction);
   }, [handleModalAction]);

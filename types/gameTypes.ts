@@ -40,6 +40,7 @@ export interface GameState {
   round: number;
   gameOver: boolean;
   scores?: number[];
+  scoreDetails?: any; // For end game score breakdown
   lastCapturer: number | null;
   winner?: number;
 }

@@ -19,7 +19,7 @@ type CardStackProps = {
   onDragEnd?: (card: any, position: any) => void;
   onDragMove?: (card: any, position: any) => void;
   currentPlayer?: number;
-  dragSource?: string;
+  dragSource?: 'hand' | 'table' | 'captured' | 'opponentCapture' | 'temporary_stack';
 };
 
 const CardStack: React.FC<CardStackProps> = memo(({ 
@@ -33,7 +33,7 @@ const CardStack: React.FC<CardStackProps> = memo(({
   onDragEnd,
   onDragMove,
   currentPlayer = 0,
-  dragSource = 'table'
+  dragSource = 'table' as const
 }) => {
   // Show only the top card for visual simplicity on mobile
   const topCard = cards[cards.length - 1];
