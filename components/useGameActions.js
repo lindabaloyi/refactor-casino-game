@@ -1,13 +1,13 @@
 import { useState, useCallback, useEffect } from 'react';
 import { getErrorInfo } from '../utils/errorMapping';
 import { hasAnyContact } from '../utils/simpleContactDetection';
-import { useNotifications as importedUseNotifications } from '../hooks/useNotifications';
-import { useModalManager } from '../hooks/useModalManager';
+import { useNotifications as importedUseNotifications } from '../hooks/useNotifications.ts';
+import { useModalManager } from '../hooks/useModalManager.ts';
 import {
   createActionOption as importedCreateActionOption,
   canCreateBuild as importedCanCreateBuild,
   generatePossibleActions as importedGeneratePossibleActions
-} from '../utils/gameActionHelpers';
+} from '../utils/gameActionHelpers.ts';
 import { handleTableCardDrop } from '../handlers/handleTableCardDrop';
 import { handleHandCardDrop } from '../handlers/handleHandCardDrop';
 import { handleTemporaryStackDrop } from '../handlers/handleTemporaryStackDrop';
