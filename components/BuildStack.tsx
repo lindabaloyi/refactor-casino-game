@@ -43,7 +43,7 @@ const BuildStack: React.FC<BuildStackProps> = ({ build, onPress, selected = fals
       <View style={styles.cardsContainer}>
         {build.cards.map((card, index) => (
           <Card
-            key={`${card.rank}${card.suit}-${index}`}
+            key={`build-card-${build.owner}-${build.value}-${index}-${card.rank}${card.suit}`}
             card={card}
             size="small"
             disabled={true}

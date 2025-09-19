@@ -25,9 +25,11 @@ const PlayerHand = memo<PlayerHandProps>(({
   return (
     <View style={styles.playerHand}>
       {cards.map((card, index) => {
+        const handKey = `hand-p${player}-${index}-${card.rank}-${card.suit}`;
+        
         return (
           <DraggableCard
-            key={`${card.rank}-${card.suit}`}
+            key={handKey}
             card={card}
             onDragStart={onDragStart}
             onDragEnd={onDragEnd}

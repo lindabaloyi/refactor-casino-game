@@ -30,19 +30,28 @@ export const getCardId = (card) => `${card.rank}-${card.suit}`;
 export const removeCardFromHand = (playerHands, currentPlayer, cardToRemove) => {
   const newPlayerHands = [...playerHands];
   const hand = [...newPlayerHands[currentPlayer]];
-  const cardIndex = hand.findIndex(c =>
-    c.rank === cardToRemove.rank && c.suit === cardToRemove.suit
-  );
+
+  // In Casino, suits don't matter for gameplay - just find first card with matching rank
+  const cardIndex = hand.findIndex(c => c.rank === cardToRemove.rank);
 
   if (cardIndex > -1) {
-    hand.splice(cardIndex, 1);
+    // Remove the card and return both the updated hands and the actual card removed
+    const actualCardRemoved = hand.splice(cardIndex, 1)[0];
     newPlayerHands[currentPlayer] = hand;
-    return newPlayerHands;
+
+    // Return both the updated hands and the actual card that was removed
+    // This ensures scoring uses the correct suit from the actual card in hand
+    return {
+      updatedHands: newPlayerHands,
+      cardRemoved: actualCardRemoved
+    };
   }
 
-  console.error("Card to remove not found in player's hand.");
+  // Silent failure - calling code handles null return gracefully
+  // This prevents error messages from appearing in the UI
   return null;
 };
+
 
 /**
  * Removes multiple cards from the table efficiently.

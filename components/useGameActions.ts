@@ -144,51 +144,19 @@ export const useGameActions = (): GameActionsReturn => {
         return handleStageSingleCardFromHand(currentGameState, card);
       }
 
-      // SIMPLE CONTACT CHECK
-      // If dropped card has ANY contact with table entities, don't trail
-      if (dropPosition && hasAnyContact(dropPosition, tableCards)) {
-        // Contact detected - let normal game logic handle capture/build
-        console.log(`Contact detected for ${card.rank} - routing to capture/build logic`);
-        return currentGameState; // Don't trail, let drop zone handlers manage this
-      }
-
-      // No contact - proceed with trail validation
+      // A trail action is initiated by dropping a card on an empty area of the table.
+      // The `handleDropOnCard` function will handle drops on other cards.
+      // Therefore, we can immediately proceed with the trail action here.
+      
       const validation = validateTrail(tableCards, card, player, round);
-
       if (!validation.valid) {
         showError(validation.message);
         return currentGameState;
       }
-
-      // Trail validation passed - show confirmation modal
-      const confirmationModalInfo: ModalInfo = {
-        type: 'trail_confirmation',
-        title: 'Trail Card',
-        message: `Trail your ${card.rank} to the table?`,
-        card: card,
-        currentPlayer: currentPlayer,
-        actions: [
-          {
-            type: 'confirm_trail',
-            label: 'Yes, Trail Card',
-            payload: {
-              draggedItem: { card, source: 'hand', player: currentPlayer },
-              card,
-              currentPlayer
-            }
-          },
-          {
-            type: 'cancel_trail', 
-            label: 'Cancel',
-            payload: null
-          }
-        ]
-      };
-
-      setModalInfo(confirmationModalInfo);
-      return currentGameState; // Don't trail yet, wait for confirmation
+      
+      return handleTrail(currentGameState, card);
     });
-  }, [showError, setModalInfo]);
+  }, [showError]);
 
   // Centralized helper to execute actions and update state.
   // Wrapped in useCallback to be stable and prevent re-renders of dependent hooks.

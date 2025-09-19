@@ -8,18 +8,20 @@ export const handleTrail = (gameState, card) => {
   const { playerHands, tableCards, currentPlayer } = gameState;
 
   // Remove card from hand
-  const newPlayerHands = removeCardFromHand(playerHands, currentPlayer, card);
-  if (!newPlayerHands) {
+  const removalResult = removeCardFromHand(playerHands, currentPlayer, card);
+  if (!removalResult) {
     return gameState; // Card not found
   }
 
+  const { updatedHands, cardRemoved } = removalResult;
+
   // Create new state
   const newState = updateGameState(gameState, {
-    playerHands: newPlayerHands,
-    tableCards: [...tableCards, card],
+    playerHands: updatedHands,
+    tableCards: [...tableCards, cardRemoved],
   });
 
-  logGameState(`Player ${currentPlayer + 1} trailed a ${card.rank}`, nextPlayer(newState));
+  logGameState(`Player ${currentPlayer + 1} trailed a ${cardRemoved.rank}`, nextPlayer(newState));
   return nextPlayer(newState);
 };
 
@@ -38,11 +40,15 @@ export const handleBuild = (gameState, draggedItem, tableCardsInBuild, buildValu
   // 2. Remove the played card from its source (hand or table)
   let newPlayerHands = playerHands;
   let tempTableCards = tableCards; // Start with the original table
+  let actualCardUsed = playerCard; // Default to the provided card
+
   if (source === 'table') {
     tempTableCards = removeCardsFromTable(tableCards, [playerCard]);
   } else { // Default to hand for builds
-    newPlayerHands = removeCardFromHand(playerHands, currentPlayer, playerCard);
-    if (!newPlayerHands) return gameState;
+    const removalResult = removeCardFromHand(playerHands, currentPlayer, playerCard);
+    if (!removalResult) return gameState;
+    newPlayerHands = removalResult.updatedHands;
+    actualCardUsed = removalResult.cardRemoved;
   }
 
   // 3. Determine the cards that make up the initial build action
@@ -157,11 +163,15 @@ export const handleBaseBuild = (gameState, draggedItem, baseCard, otherCardsInBu
   let newPlayerCaptures = playerCaptures;
 
   // A base build should only be initiated from the hand, but we handle sources just in case.
+  let actualCardUsed = playerCard; // Default to the provided card
+
   if (source === 'table') {
     newTableCards = removeCardsFromTable(tableCards, [playerCard]);
   } else { // Default to hand
-    newPlayerHands = removeCardFromHand(playerHands, currentPlayer, playerCard);
-    if (!newPlayerHands) return gameState;
+    const removalResult = removeCardFromHand(playerHands, currentPlayer, playerCard);
+    if (!removalResult) return gameState;
+    newPlayerHands = removalResult.updatedHands;
+    actualCardUsed = removalResult.cardRemoved;
   }
 
 
@@ -241,11 +251,14 @@ export const handleCreateBuildFromStack = (gameState, draggedItem, stack) => {
 
   // 3. Update game state
   // Remove hand card
-  const newPlayerHands = removeCardFromHand(playerHands, currentPlayer, handCard);
-  if (!newPlayerHands) {
+  const removalResult = removeCardFromHand(playerHands, currentPlayer, handCard);
+  if (!removalResult) {
     console.error("Card for build not found in hand.");
     return gameState;
   }
+
+  const newPlayerHands = removalResult.updatedHands;
+  const actualCardUsed = removalResult.cardRemoved;
 
   // Remove temporary stack from table and add new build (consistent with reinforcement approach)
   const newTableCards = removeCardsFromTable(tableCards, [stack]);
@@ -281,11 +294,15 @@ export const handleAddToOpponentBuild = (gameState, draggedItem, buildToAddTo) =
   let newPlayerCaptures = playerCaptures;
 
   // This action should only come from the hand, but we handle sources for robustness.
+  let actualCardUsed = playerCard; // Default to the provided card
+
   if (source === 'table') {
     newTableCards = removeCardsFromTable(tableCards, [playerCard]);
   } else { // Default to hand
-    newPlayerHands = removeCardFromHand(playerHands, currentPlayer, playerCard);
-    if (!newPlayerHands) return gameState;
+    const removalResult = removeCardFromHand(playerHands, currentPlayer, playerCard);
+    if (!removalResult) return gameState;
+    newPlayerHands = removalResult.updatedHands;
+    actualCardUsed = removalResult.cardRemoved;
   }
 
   // Remove old build from table and add the new one
@@ -329,11 +346,14 @@ export const handleAddToOwnBuild = (gameState, draggedItem, buildToAddTo) => {
   newTableCards.push(newBuild);
 
   // Update player hand
-  const newPlayerHands = removeCardFromHand(playerHands, currentPlayer, playerCard);
-  if (!newPlayerHands) {
+  const removalResult = removeCardFromHand(playerHands, currentPlayer, playerCard);
+  if (!removalResult) {
       console.error("Card for 'add to own build' not found in hand.");
       return gameState; // Should not happen if validation is correct
   }
+
+  const newPlayerHands = removalResult.updatedHands;
+  const actualCardUsed = removalResult.cardRemoved;
 
   const newState = updateGameState(gameState, {
     tableCards: newTableCards,
@@ -362,8 +382,10 @@ export const handleCapture = (gameState, draggedItem, selectedTableCards, oppone
     // e.g., hand(4) + table(4) for a build of 8.
     if (canPartitionIntoSums(potentialStackCards, playerOwnBuild.value)) {
       // This is an "add to build" action, not a capture.
-      const newPlayerHands = removeCardFromHand(playerHands, currentPlayer, selectedCard);
-      if (!newPlayerHands) return gameState;
+      const removalResult = removeCardFromHand(playerHands, currentPlayer, selectedCard);
+      if (!removalResult) return gameState;
+      const newPlayerHands = removalResult.updatedHands;
+      const actualCardUsed = removalResult.cardRemoved;
 
       const allNewBuildCards = [...playerOwnBuild.cards, ...potentialStackCards];
 
@@ -397,13 +419,17 @@ export const handleCapture = (gameState, draggedItem, selectedTableCards, oppone
   const isFinalizingStack = selectedTableCards.some(item => item.type === 'temporary_stack');
 
   // Update game state
+  let actualCardUsed = selectedCard; // Default to the provided card
+
   if (source === 'table') {
     newTableCards = removeCardsFromTable(tableCards, [selectedCard]);
   } else { // Default to hand
     // If we are finalizing a stack, the hand card has already been removed.
     if (!isFinalizingStack) {
-      newPlayerHands = removeCardFromHand(playerHands, currentPlayer, selectedCard);
-      if (!newPlayerHands) return gameState;
+      const removalResult = removeCardFromHand(playerHands, currentPlayer, selectedCard);
+      if (!removalResult) return gameState;
+      newPlayerHands = removalResult.updatedHands;
+      actualCardUsed = removalResult.cardRemoved;
     }
   }
 
@@ -646,8 +672,10 @@ export const handleCreateStagingStack = (gameState, handCard, tableCard) => {
     owner: currentPlayer,
   };
 
-  const newPlayerHands = removeCardFromHand(playerHands, currentPlayer, handCard);
-  if (!newPlayerHands) return gameState;
+  const removalResult = removeCardFromHand(playerHands, currentPlayer, handCard);
+  if (!removalResult) return gameState;
+  const newPlayerHands = removalResult.updatedHands;
+  const actualCardUsed = removalResult.cardRemoved;
 
   const finalTableCards = [...tableCards];
   finalTableCards.splice(targetIndex, 1, newStack); // Replace the target card with the new stack
@@ -667,8 +695,10 @@ export const handleAddToStagingStack = (gameState, handCard, targetStack) => {
   const { playerHands, tableCards, currentPlayer } = gameState;
 
   // 1. Remove card from hand
-  const newPlayerHands = removeCardFromHand(playerHands, currentPlayer, handCard);
-  if (!newPlayerHands) return gameState;
+  const removalResult = removeCardFromHand(playerHands, currentPlayer, handCard);
+  if (!removalResult) return gameState;
+  const newPlayerHands = removalResult.updatedHands;
+  const actualCardUsed = removalResult.cardRemoved;
 
   // 2. Create the updated stack by adding the new card
   const newStack = { ...targetStack, cards: [...targetStack.cards, { ...handCard, source: 'hand' }] };
@@ -879,8 +909,10 @@ export const handleExtendToMerge = (gameState, handCard, opponentBuild, ownBuild
   const { playerHands, tableCards, currentPlayer } = gameState;
 
   // 1. Remove the card from the player's hand.
-  const newPlayerHands = removeCardFromHand(playerHands, currentPlayer, handCard);
-  if (!newPlayerHands) return gameState;
+  const removalResult = removeCardFromHand(playerHands, currentPlayer, handCard);
+  if (!removalResult) return gameState;
+  const newPlayerHands = removalResult.updatedHands;
+  const actualCardUsed = removalResult.cardRemoved;
 
   // 2. Combine all cards: own build cards + opponent build cards + hand card.
   // Sort the combined cards to ensure bigger cards are at the bottom of the stack.
@@ -1022,8 +1054,10 @@ export const handleStageSingleCardFromHand = (gameState, card) => {
     return gameState;
   }
 
-  const newPlayerHands = removeCardFromHand(playerHands, currentPlayer, card);
-  if (!newPlayerHands) return gameState;
+  const removalResult = removeCardFromHand(playerHands, currentPlayer, card);
+  if (!removalResult) return gameState;
+  const newPlayerHands = removalResult.updatedHands;
+  const actualCardUsed = removalResult.cardRemoved;
 
   const newStack = {
     stackId: `temp-${Date.now()}`,

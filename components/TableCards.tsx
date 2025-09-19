@@ -191,10 +191,11 @@ const TableCards = ({
           </View>
         ) : (
           cards.map((item, index) => {
+
             if (item.type === 'build') {
               return (
                 <BuildStack
-                  key={item.buildId || index}
+                  key={item.buildId ? `build-${item.buildId}` : `build-fallback-${index}`}
                   build={item as BuildType}
                   onDropStack={memoizedOnDropOnCard}
                   onCardPress={onCardPress}
@@ -204,7 +205,7 @@ const TableCards = ({
             if (item.type === 'temporary_stack') {
               return (
                 <TempStack
-                  key={item.stackId || index}
+                  key={item.stackId ? `stack-${item.stackId}` : `stack-fallback-${index}`}
                   stack={item as TempStackType}
                   onDropOnCard={memoizedOnDropOnCard}
                   currentPlayer={currentPlayer}
@@ -217,10 +218,10 @@ const TableCards = ({
                 />
               );
             }
-            // Default to rendering a loose card
+            // Default to rendering a loose card - fixed key generation
             return (
               <LooseCard
-                key={`loose-${item.rank}-${item.suit}` || index}
+                key={`loose-card-${index}-${(item as LooseCardType).rank}-${(item as LooseCardType).suit}`}
                 card={item as CardType}
                 onDropOnCard={memoizedOnDropOnCard}
                 currentPlayer={currentPlayer}
