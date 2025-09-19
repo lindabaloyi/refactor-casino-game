@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { getErrorInfo } from '../utils/errorMapping';
 import { hasAnyContact } from '../utils/simpleContactDetection';
+import { useNotifications as importedUseNotifications } from '../hooks/useNotifications';
 import {
   initializeGame,
   updateGameState,
@@ -54,37 +55,12 @@ import {
 
 import { analyzeCardStack, validateNewCardAddition, getCandidateTargetValues, validateComboSorting } from '../game-logic/combo-analyzer';
 
-// Mobile notification functions using custom ErrorModal
-const useNotifications = (setErrorModal) => ({
-  showError: (message) => {
-    const errorInfo = getErrorInfo(message);
-    setErrorModal({
-      visible: true,
-      title: errorInfo.title,
-      message: errorInfo.message,
-    });
-  },
-  showWarning: (message) => {
-    setErrorModal({
-      visible: true,
-      title: 'Notice',
-      message: message,
-    });
-  },
-  showInfo: (message) => {
-    setErrorModal({
-      visible: true,
-      title: 'Game Info',
-      message: message,
-    });
-  },
-});
 
 export const useGameActions = () => {
   const [gameState, setGameState] = useState(initializeGame());
   const [modalInfo, setModalInfo] = useState(null);
   const [errorModal, setErrorModal] = useState({ visible: false, title: '', message: '' });
-  const { showError, showWarning, showInfo } = useNotifications(setErrorModal);
+  const { showError, showWarning, showInfo } = importedUseNotifications(setErrorModal);
 
   // Effect to handle end of round and end of game
   useEffect(() => {
