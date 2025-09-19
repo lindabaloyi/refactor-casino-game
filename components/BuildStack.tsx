@@ -1,9 +1,22 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import Card from './card';
+import Card, { CardType } from './card';
 
-const BuildStack = ({ build, onPress, selected = false }) => {
-  const getOwnerColor = (owner) => {
+type BuildType = {
+  owner: number;
+  value: number;
+  cards: CardType[];
+  isExtendable?: boolean;
+};
+
+type BuildStackProps = {
+  build: BuildType;
+  onPress?: (build: BuildType) => void;
+  selected?: boolean;
+};
+
+const BuildStack: React.FC<BuildStackProps> = ({ build, onPress, selected = false }) => {
+  const getOwnerColor = (owner: number) => {
     return owner === 0 ? '#FF5722' : '#2196F3';
   };
 
