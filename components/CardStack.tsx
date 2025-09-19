@@ -57,32 +57,47 @@ const CardStack: React.FC<CardStackProps> = memo(({
     if (onDropStack) {
       const { x, y, width, height } = event.nativeEvent.layout;
       
-      // Get absolute position
-      stackRef.current?.measureInWindow((pageX, pageY) => {
-        if (!(global as any).dropZones) (global as any).dropZones = [];
-        
-        const existingIndex = (global as any).dropZones.findIndex((zone: any) => zone.stackId === stackId);
-        const dropZone = {
-          stackId,
-          // Make drop zones 20% larger for more forgiving detection
-          bounds: { 
-            x: pageX - (width * 0.1), 
-            y: pageY - (height * 0.1), 
-            width: width * 1.2, 
-            height: height * 1.2 
-          },
-          onDrop: (draggedItem: any) => {
-            onDropStack(draggedItem);
-            return true; // Mark as handled
+      // Get absolute position with retry mechanism for better reliability
+      const registerDropZone = () => {
+        stackRef.current?.measureInWindow((pageX, pageY) => {
+          if (!(global as any).dropZones) (global as any).dropZones = [];
+          
+          // Skip registration if position seems invalid
+          if (pageX === 0 && pageY === 0) {
+            console.log(`[DropZone] Skipping invalid position for ${stackId}`);
+            // Retry after a short delay
+            setTimeout(registerDropZone, 100);
+            return;
           }
-        };
-        
-        if (existingIndex >= 0) {
-          (global as any).dropZones[existingIndex] = dropZone;
-        } else {
-          (global as any).dropZones.push(dropZone);
-        }
-      });
+          
+          const existingIndex = (global as any).dropZones.findIndex((zone: any) => zone.stackId === stackId);
+          const dropZone = {
+            stackId,
+            // Make drop zones 30% larger for more forgiving mobile detection
+            bounds: {
+              x: pageX - (width * 0.15),
+              y: pageY - (height * 0.15),
+              width: width * 1.3,
+              height: height * 1.3
+            },
+            onDrop: (draggedItem: any) => {
+              console.log(`[DropZone] ${stackId} received drop attempt`);
+              onDropStack(draggedItem);
+              return true; // Mark as handled
+            }
+          };
+          
+          if (existingIndex >= 0) {
+            (global as any).dropZones[existingIndex] = dropZone;
+            console.log(`[DropZone] Updated zone ${stackId} at (${pageX}, ${pageY}) size ${width}x${height}`);
+          } else {
+            (global as any).dropZones.push(dropZone);
+            console.log(`[DropZone] Registered new zone ${stackId} at (${pageX}, ${pageY}) size ${width}x${height}`);
+          }
+        });
+      };
+      
+      registerDropZone();
     }
   };
 

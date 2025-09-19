@@ -110,11 +110,14 @@ const DraggableCard: React.FC<DraggableCardProps> = ({
     onPanResponderRelease: (event, gestureState) => {
       if (disabled || !draggable) return;
       
+      // Save the drag state before resetting it
+      const wasActuallyDragging = hasStartedDrag;
+      
       setIsDragging(false);
       setHasStartedDrag(false);
       
       // Only process drop if we actually started dragging
-      if (!hasStartedDrag) {
+      if (!wasActuallyDragging) {
         // Just a tap, not a drag - do nothing
         return;
       }
@@ -128,29 +131,36 @@ const DraggableCard: React.FC<DraggableCardProps> = ({
       };
       
       // Check if dropped on any registered drop zones with tolerance
-      if (global.dropZones) {
+      if (global.dropZones && global.dropZones.length > 0) {
         let bestZone: DropZone | null = null;
         let closestDistance = Infinity;
+        
+        // DEBUG: Log drop attempt
+        console.log(`[DragDrop] Checking ${global.dropZones.length} drop zones for position (${dropPosition.x}, ${dropPosition.y})`);
         
         // IMPROVED: Find the best drop zone with priority system and tolerance
         for (const zone of global.dropZones) {
           const { x, y, width, height } = zone.bounds;
           
-          // Add tolerance buffer (30px on all sides for more forgiving detection)
-          const tolerance = 30;
+          // Increased tolerance buffer for mobile (40px on all sides)
+          const tolerance = 40;
           const expandedX = x - tolerance;
           const expandedY = y - tolerance;
           const expandedWidth = width + (tolerance * 2);
           const expandedHeight = height + (tolerance * 2);
           
-          if (dropPosition.x >= expandedX && dropPosition.x <= expandedX + expandedWidth &&
-              dropPosition.y >= expandedY && dropPosition.y <= expandedY + expandedHeight) {
-            
+          const isInside = dropPosition.x >= expandedX && dropPosition.x <= expandedX + expandedWidth &&
+                          dropPosition.y >= expandedY && dropPosition.y <= expandedY + expandedHeight;
+          
+          // DEBUG: Log zone checking
+          console.log(`[DragDrop] Zone ${zone.stackId || 'unknown'}: bounds(${x},${y},${width}x${height}) expanded(${expandedX},${expandedY},${expandedWidth}x${expandedHeight}) inside:${isInside}`);
+          
+          if (isInside) {
             // Calculate distance to center of drop zone for best match
             const centerX = x + width / 2;
             const centerY = y + height / 2;
             const distance = Math.sqrt(
-              Math.pow(dropPosition.x - centerX, 2) + 
+              Math.pow(dropPosition.x - centerX, 2) +
               Math.pow(dropPosition.y - centerY, 2)
             );
             
@@ -162,6 +172,8 @@ const DraggableCard: React.FC<DraggableCardProps> = ({
             // Small zones (cards) get significant priority boost vs large zones (table areas)
             const priorityScore = distance + (zoneArea > 10000 ? 1000 : 0);
             
+            console.log(`[DragDrop] Zone ${zone.stackId || 'unknown'}: distance=${distance.toFixed(1)} area=${zoneArea} priority=${priorityScore.toFixed(1)}`);
+            
             if (priorityScore < closestDistance) {
               closestDistance = priorityScore;
               bestZone = zone;
@@ -171,16 +183,24 @@ const DraggableCard: React.FC<DraggableCardProps> = ({
         
         // Try to drop on the closest zone found
         if (bestZone) {
-          const draggedItem: DraggedItem = { 
-            card, 
-            source, 
-            player: currentPlayer, 
-            stackId: stackId || undefined 
+          console.log(`[DragDrop] Selected best zone: ${bestZone.stackId || 'unknown'}`);
+          const draggedItem: DraggedItem = {
+            card,
+            source,
+            player: currentPlayer,
+            stackId: stackId || undefined
           };
           if (bestZone.onDrop(draggedItem)) {
+            console.log(`[DragDrop] Drop handled successfully`);
             dropPosition.handled = true;
+          } else {
+            console.log(`[DragDrop] Drop rejected by zone`);
           }
+        } else {
+          console.log(`[DragDrop] No suitable drop zone found`);
         }
+      } else {
+        console.log(`[DragDrop] No drop zones registered`);
       }
       
       // Smoothly return to original position
