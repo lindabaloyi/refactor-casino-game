@@ -180,28 +180,11 @@ export const handleHandCardDrop = (
       return updateGameState(currentGameState, { tableCards: newTableCards });
     }
 
-    // Generate possible actions to help user choose
-    const actions = importedGeneratePossibleActions(draggedItem, targetCard, playerHands[currentPlayer], tableCards, playerCaptures, currentPlayer);
+    // --- DYNAMIC COMBINATION LOGIC ---
+    // Always create temporary staging stack first for maximum flexibility
+    // Players can combine cards dynamically, then choose actions when clicking "done"
+    // This gives players power to experiment with combinations before committing
 
-    // --- DECISION LOGIC ---
-    // If there are possible actions (capture, build), present them to the player
-    // Only create staging stack if no other actions are possible
-    if (actions.length > 0) {
-      if (actions.length === 1) {
-        // Single action - execute immediately
-        return executeAction(currentGameState, actions[0]);
-      } else {
-        // Multiple actions - show modal for player to choose
-        setModalInfo({
-          title: 'Choose Your Action',
-          message: `What would you like to do with your ${draggedCard.rank}?`,
-          actions: actions,
-        });
-        return currentGameState;
-      }
-    }
-
-    // No actions possible - create staging stack for potential build
     // CASINO RULE: Players can only have one temp build active at a time
     const playerAlreadyHasTempStack = tableCards.some(
       s => (s as TemporaryStack).type === 'temporary_stack' && (s as TemporaryStack).owner === currentPlayer
@@ -211,6 +194,7 @@ export const handleHandCardDrop = (
       return currentGameState;
     }
 
+    // Always create staging stack - action selection happens at "done" button
     return handleCreateStagingStack(currentGameState, draggedCard, targetCard);
   }
 
