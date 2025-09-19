@@ -31,8 +31,8 @@ export const removeCardFromHand = (playerHands, currentPlayer, cardToRemove) => 
   const newPlayerHands = [...playerHands];
   const hand = [...newPlayerHands[currentPlayer]];
 
-  // In Casino, suits don't matter for gameplay - just find first card with matching rank
-  const cardIndex = hand.findIndex(c => c.rank === cardToRemove.rank);
+  // FIXED: Match both rank and suit to ensure exact card removal - prevents duplication bug
+  const cardIndex = hand.findIndex(c => c.rank === cardToRemove.rank && c.suit === cardToRemove.suit);
 
   if (cardIndex > -1) {
     // Remove the card and return both the updated hands and the actual card removed

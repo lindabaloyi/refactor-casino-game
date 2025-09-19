@@ -62,45 +62,18 @@ export const handleBuild = (gameState, draggedItem, tableCardsInBuild, buildValu
     initialBuildCards = [...sortedTableCards, playerCard];
   }
 
-  // 4. NEW: Check for other matching items on the table to auto-group
-  const buildCardIds = tableCardsInBuild.map(c => `${c.rank}${c.suit}`);
-  const matchingItemsOnTable = tempTableCards.filter(item => {
-    if (item.value !== buildValue) return false;
-    if (item.type === 'build') return true; // Always group with existing builds
-    if (!item.type && !buildCardIds.includes(`${item.rank}${item.suit}`)) return true; // It's a loose card not in our build action
-    return false;
-  });
+  // Create the build using only the explicitly selected cards
+  const newBuild = {
+    buildId: generateBuildId(),
+    type: 'build',
+    cards: initialBuildCards,
+    value: buildValue,
+    owner: currentPlayer,
+    isExtendable: true, // Builds are extendable by default
+  };
 
-  let finalTableCards;
-  let newBuild;
-
-  if (matchingItemsOnTable.length > 0) {
-    // Auto-grouping path: Consolidate all cards, placing matching table cards at the bottom.
-    const baseCards = matchingItemsOnTable.flatMap(item => item.cards || [item]);
-    const sortedBaseCards = sortCardsByRank(baseCards);
-
-    // The cards from the player's immediate action are placed on top of the base.
-    // initialBuildCards is already ordered correctly (e.g., [bigger, smaller] for a sum build).
-    const allConsolidatedCards = [...sortedBaseCards, ...initialBuildCards];
-
-    const itemsToRemoveFromTable = [...tableCardsInBuild, ...matchingItemsOnTable];
-
-    newBuild = {
-      buildId: generateBuildId(),
-      type: 'build',
-      cards: allConsolidatedCards, // Use the new custom order
-      value: buildValue,
-      owner: currentPlayer,
-      isExtendable: false,
-    };
-    finalTableCards = removeCardsFromTable(tempTableCards, itemsToRemoveFromTable);
-    finalTableCards.push(newBuild);
-  } else {
-    // Standard build path (no auto-grouping)
-    newBuild = { buildId: generateBuildId(), type: 'build', cards: initialBuildCards, value: buildValue, owner: currentPlayer, isExtendable: true };
-    finalTableCards = removeCardsFromTable(tempTableCards, tableCardsInBuild);
-    finalTableCards.push(newBuild);
-  }
+  const finalTableCards = removeCardsFromTable(tempTableCards, tableCardsInBuild);
+  finalTableCards.push(newBuild);
 
   const newState = updateGameState(gameState, {
     playerHands: newPlayerHands,
@@ -224,17 +197,6 @@ export const handleCreateBuildFromStack = (gameState, draggedItem, stack) => {
   const isReinforce = stackValue === handCardValue;
   const newBuildValue = isReinforce ? stackValue : stackValue + handCardValue;
 
-  // CASINO RULE: Mandatory base rule enforcement at finalization
-  // Check if there are existing equal-value loose cards that must be included
-  const existingEqualValueCards = tableCards.filter(c => 
-    !c.type && rankValue(c.rank) === newBuildValue && 
-    !stack.cards.some(sc => sc.rank === c.rank && sc.suit === c.suit)
-  );
-  
-  if (existingEqualValueCards.length > 0) {
-    console.error(`Build finalization blocked: Must include existing ${rankValue(existingEqualValueCards[0].rank)} when creating build of value ${newBuildValue}`);
-    return gameState; // Block the build creation
-  }
 
   // Maintain consistent ordering with temp builds - bigger cards at index 0 (bottom of pile)
   const allCardsInBuild = [...stack.cards, handCard].sort((a, b) => rankValue(b.rank) - rankValue(a.rank));
@@ -418,11 +380,17 @@ export const handleCapture = (gameState, draggedItem, selectedTableCards, oppone
 
   const isFinalizingStack = selectedTableCards.some(item => item.type === 'temporary_stack');
 
+  console.log(`🎯 CAPTURE DEBUG: Player ${currentPlayer + 1} capturing with ${selectedCard.rank}${selectedCard.suit} from ${source}`);
+  console.log(`🎯 Table cards before capture:`, tableCards.map(c => c.type ? `${c.type}(${c.cards?.length || 'N/A'})` : `${c.rank}${c.suit}`));
+  console.log(`🎯 Selected table cards:`, selectedTableCards.map(c => c.type ? `${c.type}(${c.cards?.length || 'N/A'})` : `${c.rank}${c.suit}`));
+
   // Update game state
   let actualCardUsed = selectedCard; // Default to the provided card
 
   if (source === 'table') {
+    console.log(`🎯 Removing capturing card ${selectedCard.rank}${selectedCard.suit} from table`);
     newTableCards = removeCardsFromTable(tableCards, [selectedCard]);
+    console.log(`🎯 Table after removing capturing card:`, newTableCards.map(c => c.type ? `${c.type}(${c.cards?.length || 'N/A'})` : `${c.rank}${c.suit}`));
   } else { // Default to hand
     // If we are finalizing a stack, the hand card has already been removed.
     if (!isFinalizingStack) {
@@ -430,13 +398,15 @@ export const handleCapture = (gameState, draggedItem, selectedTableCards, oppone
       if (!removalResult) return gameState;
       newPlayerHands = removalResult.updatedHands;
       actualCardUsed = removalResult.cardRemoved;
+      console.log(`🎯 Removed ${actualCardUsed.rank}${actualCardUsed.suit} from hand`);
     }
   }
 
   // Remove captured cards from table
+  console.log(`🎯 Removing selected table cards from table...`);
   const finalTableCards = newTableCards.filter(item => {
     // Check if the current table item 'item' is one of the selectedTableCards
-    return !selectedTableCards.some(capturedItem => {
+    const shouldRemove = selectedTableCards.some(capturedItem => {
       if (item.type === 'build' && capturedItem.type === 'build') {
         return item.buildId === capturedItem.buildId;
       }
@@ -444,11 +414,18 @@ export const handleCapture = (gameState, draggedItem, selectedTableCards, oppone
         return item.stackId === capturedItem.stackId;
       }
       if (!item.type && !capturedItem.type) {
-        return item.rank === capturedItem.rank && item.suit === capturedItem.suit;
+        const match = item.rank === capturedItem.rank && item.suit === capturedItem.suit;
+        if (match) {
+          console.log(`🎯 Removing captured card ${item.rank}${item.suit} from table`);
+        }
+        return match;
       }
       return false;
     });
+    return !shouldRemove;
   });
+  
+  console.log(`🎯 Final table cards after removal:`, finalTableCards.map(c => c.type ? `${c.type}(${c.cards?.length || 'N/A'})` : `${c.rank}${c.suit}`));
 
   // Handle opponent's card removal if involved
   let finalPlayerCaptures = [...newPlayerCaptures];
@@ -465,18 +442,57 @@ export const handleCapture = (gameState, draggedItem, selectedTableCards, oppone
   const allCapturedItems = selectedTableCards.flatMap(item =>
     (item.type === 'build' || item.type === 'temporary_stack') ? item.cards : [item]
   );
+  console.log(`🎯 All captured items:`, allCapturedItems.map(c => `${c.rank}${c.suit}`));
 
   // If we are finalizing a stack, the `selectedCard` (from hand) is already inside `allCapturedItems`.
   // We need to remove it to avoid duplication in the capture pile.
-  const flattenedCapturedCards = isFinalizingStack
+  let flattenedCapturedCards = isFinalizingStack
     ? allCapturedItems.filter(c => !(c.source === 'hand' && c.rank === selectedCard.rank && c.suit === selectedCard.suit))
     : allCapturedItems;
+  console.log(`🎯 Flattened captured cards after deduplication:`, flattenedCapturedCards.map(c => `${c.rank}${c.suit}`));
 
-  // Create properly ordered capture stack
-  const capturedGroup = createCaptureStack(selectedCard, flattenedCapturedCards, opponentCard);
+  // If the capturing card is from the table, it needs to be included in the capture pile
+  if (source === 'table') {
+    flattenedCapturedCards = [...flattenedCapturedCards, actualCardUsed];
+    console.log(`🎯 Added table capturing card to captured cards:`, flattenedCapturedCards.map(c => `${c.rank}${c.suit}`));
+  }
+
+  // Create properly ordered capture stack - use actualCardUsed for hand cards, selectedCard for others
+  const capturingCardForStack = source === 'hand' ? actualCardUsed : selectedCard;
+  console.log(`🎯 Creating capture stack with:`, {
+    capturingCard: `${capturingCardForStack.rank}${capturingCardForStack.suit}`,
+    capturedCards: flattenedCapturedCards.map(c => `${c.rank}${c.suit}`),
+    opponentCard: opponentCard ? `${opponentCard.rank}${opponentCard.suit}` : 'none'
+  });
+  const capturedGroup = createCaptureStack(capturingCardForStack, flattenedCapturedCards, opponentCard);
+  console.log(`🎯 Final capture group:`, capturedGroup.map(c => `${c.rank}${c.suit}`));
 
   // Add captured cards to player's captures
   finalPlayerCaptures[currentPlayer] = [...finalPlayerCaptures[currentPlayer], capturedGroup];
+
+  // CRITICAL DEBUG: Check for corrupted cards before state update
+  console.log(`🔍 CORRUPTION CHECK - Final table cards:`, finalTableCards.map(c => {
+    if (c.type) {
+      return `${c.type}(owner:${c.owner || 'none'})`;
+    } else {
+      return `${c.rank}${c.suit}(player:${c.player || 'none'})`;
+    }
+  }));
+  
+  // Check for any cards with invalid player data
+  const corruptedCards = finalTableCards.filter(c =>
+    (!c.type && c.player && (c.player < 0 || c.player > 1)) ||
+    (c.type && c.owner && (c.owner < 0 || c.owner > 1))
+  );
+  
+  if (corruptedCards.length > 0) {
+    console.error(`🚨 CORRUPTED CARDS DETECTED:`, corruptedCards.map(c => ({
+      card: c.type ? c.type : `${c.rank}${c.suit}`,
+      player: c.player,
+      owner: c.owner,
+      source: c.source
+    })));
+  }
 
   const newState = updateGameState(gameState, {
     playerHands: newPlayerHands,
@@ -789,14 +805,25 @@ export const handleCancelStagingStack = (gameState, stackToCancel) => {
   const opponentCards = [];
 
   // 1. Sort cards back to their original sources by reading their 'source' property
+  console.log(`🔧 Cancelling stack with ${stackToCancel.cards.length} cards:`, stackToCancel.cards.map(c => `${c.rank}${c.suit}(${c.source})`));
+  
   for (const card of stackToCancel.cards) {
     const cardData = { ...card };
     delete cardData.source; // Clean up the source property
 
-    if (card.source === 'hand') handCards.push(cardData);
-    else if (card.source === 'opponentCapture') opponentCards.push(cardData);
-    else newLooseCards.push(cardData); // Default to table
+    if (card.source === 'hand') {
+      console.log(`🏠 Returning ${card.rank}${card.suit} to hand`);
+      handCards.push(cardData);
+    } else if (card.source === 'opponentCapture') {
+      console.log(`👥 Returning ${card.rank}${card.suit} to opponent captures`);
+      opponentCards.push(cardData);
+    } else {
+      console.log(`🎮 Returning ${card.rank}${card.suit} to table (source: ${card.source || 'undefined'})`);
+      newLooseCards.push(cardData); // Default to table
+    }
   }
+  
+  console.log(`🔧 Cancel summary: ${handCards.length} to hand, ${newLooseCards.length} to table, ${opponentCards.length} to opponent`);
 
   // 2. Update player's hand
   const currentHand = [...playerHands[currentPlayer], ...handCards];
@@ -995,39 +1022,20 @@ export const handleCreateBuildWithValue = (gameState, stack, buildValue) => {
   // 1. Get the cards that make up the build from the stack
   const initialBuildCards = stack.cards.map(({ source, ...card }) => card);
 
-  // 2. Find other matching items on the table to auto-group
-  const matchingItemsOnTable = tableCards.filter(item => {
-    // Don't match with the stack we are finalizing
-    if (item.stackId && item.stackId === stack.stackId) return false;
+  // Create the build using only the cards from the stack
+  const finalBuildCards = [...initialBuildCards].sort((a, b) => rankValue(b.rank) - rankValue(a.rank));
 
-    const itemValue = item.type === 'build' ? item.value : rankValue(item.rank);
-    return itemValue === buildValue;
-  });
+  const newBuild = {
+    buildId: generateBuildId(),
+    type: 'build',
+    cards: finalBuildCards,
+    value: buildValue,
+    owner: currentPlayer,
+    isExtendable: true, // Builds are extendable by default
+  };
 
-  let finalBuildCards;
-  let itemsToRemoveFromTable = [stack];
-  let isExtendable = true;
-
-  if (matchingItemsOnTable.length > 0) {
-    // Auto-grouping path
-    const baseCards = matchingItemsOnTable.flatMap(item => item.cards || [item]);
-    // Sort descending to keep bigger cards at bottom (index 0) for visual consistency with temp builds
-    const sortedBaseCards = [...baseCards].sort((a, b) => rankValue(b.rank) - rankValue(a.rank));
-    const sortedActionCards = [...initialBuildCards].sort((a, b) => rankValue(b.rank) - rankValue(a.rank));
-
-    // The user wants the base cards (from the table) at the bottom, and action cards on top.
-    finalBuildCards = [...sortedBaseCards, ...sortedActionCards];
-    itemsToRemoveFromTable.push(...matchingItemsOnTable);
-    isExtendable = false; // Auto-grouped builds are not extendable
-  } else {
-    // Standard build path - sort descending for temp-to-permanent conversion consistency
-    finalBuildCards = [...initialBuildCards].sort((a, b) => rankValue(b.rank) - rankValue(a.rank));
-  }
-
-  const newBuild = { buildId: generateBuildId(), type: 'build', cards: finalBuildCards, value: buildValue, owner: currentPlayer, isExtendable: isExtendable };
-
-  // Remove the staging stack and any auto-grouped items from the table
-  const newTableCards = removeCardsFromTable(tableCards, itemsToRemoveFromTable);
+  // Remove only the staging stack from the table
+  const newTableCards = removeCardsFromTable(tableCards, [stack]);
   newTableCards.push(newBuild);
 
   const newState = updateGameState(gameState, { tableCards: newTableCards });

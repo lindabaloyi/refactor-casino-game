@@ -125,11 +125,8 @@ export const useGameActions = (): GameActionsReturn => {
 
   const handleTrailCard = useCallback((card: Card, player: number, dropPosition: any = null): void => {
     setGameState(currentGameState => {
-      if (player !== currentGameState.currentPlayer) {
-        showError("It's not your turn!");
-        return currentGameState;
-      }
-
+      // Turn validation removed - players can play anytime
+      
       const { tableCards, round, currentPlayer, playerHands } = currentGameState;
 
       // In Round 2, trailing a card creates a temporary stack instead.
@@ -146,17 +143,18 @@ export const useGameActions = (): GameActionsReturn => {
 
       // A trail action is initiated by dropping a card on an empty area of the table.
       // The `handleDropOnCard` function will handle drops on other cards.
-      // Therefore, we can immediately proceed with the trail action here.
-      
+      // Validate the trail before executing
+
       const validation = validateTrail(tableCards, card, player, round);
       if (!validation.valid) {
         showError(validation.message);
         return currentGameState;
       }
-      
+
+      // Execute trail action directly without confirmation
       return handleTrail(currentGameState, card);
     });
-  }, [showError]);
+  }, [showError, setModalInfo]);
 
   // Centralized helper to execute actions and update state.
   // Wrapped in useCallback to be stable and prevent re-renders of dependent hooks.
@@ -204,12 +202,6 @@ export const useGameActions = (): GameActionsReturn => {
         return handleExtendToMerge(currentGameState, draggedItem.card, action.payload.opponentBuild, action.payload.ownBuild);
       case 'createBuildWithValue':
         return handleCreateBuildWithValue(currentGameState, action.payload.stack, action.payload.buildValue);
-      case 'confirm_trail':
-        // Execute the trail action after confirmation
-        return handleTrail(currentGameState, action.payload.card);
-      case 'cancel_trail':
-        // Do nothing, just close modal
-        return currentGameState;
       default:
         return currentGameState;
     }
@@ -241,11 +233,7 @@ export const useGameActions = (): GameActionsReturn => {
 
       // Debug logging for troubleshooting
 
-      if (draggedItem.player !== currentPlayer) {
-        console.error(`Drop turn validation failed - dragged player: ${draggedItem.player}, current player: ${currentPlayer}`);
-        showError("It's not your turn!");
-        return currentGameState;
-      }
+      // Turn validation removed - players can drop anytime
 
       // Route to appropriate handler based on source type
       if (draggedSource === 'table' || draggedSource === 'opponentCapture' || draggedSource === 'captured') {
@@ -272,11 +260,8 @@ export const useGameActions = (): GameActionsReturn => {
 
   const handleStageOpponentCardAction = useCallback((item: { card: Card; player: number }): void => {
     setGameState(currentGameState => {
-      if (currentGameState.currentPlayer !== item.player) {
-        showError("It's not your turn!");
-        return currentGameState;
-      }
-
+      // Turn validation removed - players can stage anytime
+      
       // --- NEW VALIDATION: Enforce one temp stack at a time ---
       const { tableCards, currentPlayer } = currentGameState;
       const playerAlreadyHasTempStack = tableCards.some(

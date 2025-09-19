@@ -37,9 +37,9 @@ declare global {
   var dropZones: DropZone[] | undefined;
 }
 
-const DraggableCard: React.FC<DraggableCardProps> = ({ 
-  card, 
-  onDragStart, 
+const DraggableCard: React.FC<DraggableCardProps> = ({
+  card,
+  onDragStart,
   onDragEnd,
   onDragMove,
   disabled = false,
@@ -49,6 +49,12 @@ const DraggableCard: React.FC<DraggableCardProps> = ({
   source = 'hand',
   stackId = null
 }) => {
+  // CORRUPTION PROTECTION: Ensure currentPlayer is always valid
+  const safeCurrentPlayer = (currentPlayer >= 0 && currentPlayer <= 1) ? currentPlayer : 0;
+  
+  if (safeCurrentPlayer !== currentPlayer) {
+    console.error(`🚨 CORRUPTED CURRENT PLAYER DETECTED: ${currentPlayer} fixed to ${safeCurrentPlayer} for card ${card.rank}${card.suit}`);
+  }
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [hasStartedDrag, setHasStartedDrag] = useState<boolean>(false);
   const pan = useRef(new Animated.ValueXY()).current;
@@ -184,10 +190,11 @@ const DraggableCard: React.FC<DraggableCardProps> = ({
         // Try to drop on the closest zone found
         if (bestZone) {
           console.log(`[DragDrop] Selected best zone: ${bestZone.stackId || 'unknown'}`);
+          console.log(`🔍 DRAG DEBUG: Creating draggedItem with currentPlayer=${safeCurrentPlayer} for card ${card.rank}${card.suit}`);
           const draggedItem: DraggedItem = {
             card,
             source,
-            player: currentPlayer,
+            player: safeCurrentPlayer,
             stackId: stackId || undefined
           };
           if (bestZone.onDrop(draggedItem)) {
@@ -210,11 +217,12 @@ const DraggableCard: React.FC<DraggableCardProps> = ({
       }).start();
       
       if (onDragEnd) {
-        const draggedItem: DraggedItem = { 
-          card, 
-          source, 
-          player: currentPlayer, 
-          stackId: stackId || undefined 
+        console.log(`🔍 DRAG END: Creating draggedItem with currentPlayer=${safeCurrentPlayer} for card ${card.rank}${card.suit}`);
+        const draggedItem: DraggedItem = {
+          card,
+          source,
+          player: safeCurrentPlayer,
+          stackId: stackId || undefined
         };
         onDragEnd(draggedItem, dropPosition);
       }

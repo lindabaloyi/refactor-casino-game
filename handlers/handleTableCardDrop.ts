@@ -83,16 +83,16 @@ export const handleTableCardDrop = (
   // A.1: Dropped on a loose card to create a new stack
   if (targetInfo.type === 'loose') {
     const targetCard = tableCards.find(c => !(c as any).type && getCardId(c as Card) === targetInfo.cardId) as Card;
-    if (!targetCard) { 
-      showError("Target card for stack not found."); 
-      return currentGameState; 
+    if (!targetCard) {
+      showError("Target card for stack not found.");
+      return currentGameState;
     }
     if (getCardId(draggedCard) === getCardId(targetCard)) {
       return currentGameState; // Prevent self-drop
     }
 
     // CASINO RULE: Players can only have one temp build active at a time
-    const playerAlreadyHasTempStack = newTableCards.some(
+    const playerAlreadyHasTempStack = tableCards.some(
       s => (s as TemporaryStack).type === 'temporary_stack' && (s as TemporaryStack).owner === currentPlayer
     );
     if (playerAlreadyHasTempStack) {
@@ -100,21 +100,28 @@ export const handleTableCardDrop = (
       return currentGameState;
     }
 
-    // Find original index of the target card to preserve position
+    // Find the target card position in the ORIGINAL array before any removals
     const targetIndex = tableCards.findIndex(c => getCardId(c as Card) === getCardId(targetCard));
 
-    // Annotate cards with their source and preserve drag order
-    const annotatedTarget: Card = { ...targetCard, source: 'table' };
-    const annotatedDragged: Card = { ...draggedCard, source: draggedSource };
+    // Annotate cards with their source and preserve ALL original properties
+    const annotatedTarget: Card = {
+      ...targetCard,
+      source: 'table',
+      rank: targetCard.rank,
+      suit: targetCard.suit
+    };
+    const annotatedDragged: Card = {
+      ...draggedCard,
+      source: draggedSource,
+      rank: draggedCard.rank,
+      suit: draggedCard.suit
+    };
 
-    // SMART COMBO DETECTION for first drop
-    const initialCards = [annotatedTarget, annotatedDragged];
-    const initialAnalysis = analyzeCardStack(initialCards);
-    
-    // Keep cards in original order - no auto-sorting
-    // Player must arrange combos correctly (big→small within each combo)
+    // Create ordered cards array
     const orderedCards = [annotatedTarget, annotatedDragged];
     
+    // SMART COMBO DETECTION for first drop
+    const initialAnalysis = analyzeCardStack(orderedCards);
     if (initialAnalysis.completeCombos.length > 0) {
       console.log(`🎯 Combo detected: ${initialAnalysis.completeCombos[0].cards.map(c => c.rank).join('+')} = ${initialAnalysis.completeCombos[0].value}`);
     }
@@ -126,55 +133,63 @@ export const handleTableCardDrop = (
       owner: currentPlayer,
     };
 
-    // Replace the target card with the new stack in the array that already had the dragged card removed.
-    const finalTableCards = [...newTableCards];
-    const insertionIndex = finalTableCards.findIndex(c => getCardId(c as Card) === getCardId(targetCard));
-    if (insertionIndex !== -1) {
-      finalTableCards.splice(insertionIndex, 1, newStack);
-    } else {
-      finalTableCards.push(newStack); // Fallback
-    }
+    // FIXED: Maintain exact positions to prevent visual jumping
+    // Replace target card with new stack, remove dragged card from wherever it was
+    const finalTableCards = tableCards.map((item, index) => {
+      const itemCard = item as Card;
+      
+      // Replace target card with the new stack
+      if (getCardId(itemCard) === getCardId(targetCard)) {
+        return newStack;
+      }
+      
+      // Remove dragged card (return null, will be filtered out)
+      if (getCardId(itemCard) === getCardId(draggedCard)) {
+        return null;
+      }
+      
+      // Keep all other cards in their exact positions
+      return item;
+    }).filter(item => item !== null); // Remove null entries
+    
     return { ...currentGameState, tableCards: finalTableCards, playerCaptures: newPlayerCaptures };
   }
 
   // A.2: Dropped on an existing temporary stack to add to it
   if (targetInfo.type === 'temporary_stack') {
-    const targetStack = tableCards.find(s => 
-      (s as TemporaryStack).type === 'temporary_stack' && 
+    const targetStack = tableCards.find(s =>
+      (s as TemporaryStack).type === 'temporary_stack' &&
       (s as TemporaryStack).stackId === targetInfo.stackId
     ) as TemporaryStack;
     
-    if (!targetStack) { 
-      showError("Target stack not found."); 
-      return currentGameState; 
+    if (!targetStack) {
+      showError("Target stack not found.");
+      return currentGameState;
     }
-    if (targetStack.owner !== currentPlayer) { 
-      showError("You cannot add to another player's temporary stack."); 
-      return currentGameState; 
+    if (targetStack.owner !== currentPlayer) {
+      showError("You cannot add to another player's temporary stack.");
+      return currentGameState;
     }
 
-
-    const stackIndex = newTableCards.findIndex(s =>
-      (s as TemporaryStack).stackId === targetStack.stackId
-    );
-    
     // Check if the new card is equal-value to the stack sum (opponent capture rule)
     const stackSum = calculateCardSum(targetStack.cards);
     const draggedValue = rankValue(draggedCard.rank);
     const isEqualValueCapture = draggedValue === stackSum && (draggedSource === 'captured' || draggedSource === 'opponentCapture');
     
-    // SMART COMBO VALIDATION: Real-time analysis with combo detection
-    const currentStackAnalysis = analyzeCardStack(targetStack.cards);
-    const newCardToAdd: Card = { ...draggedCard, source: draggedSource };
+    // Preserve all card properties when adding to stack
+    const newCardToAdd: Card = {
+      ...draggedCard,
+      source: draggedSource,
+      rank: draggedCard.rank,
+      suit: draggedCard.suit
+    };
     
     let newCards: Card[];
     if (isEqualValueCapture) {
       // CASINO RULE: Equal-value captured cards go on TOP (player's choice)
-      // No validation needed for captures - just append
       newCards = [...targetStack.cards, newCardToAdd];
     } else {
-      // Add card to stack without real-time validation
-      // Players can experiment freely, validation happens at tick button
+      // Add card to stack - preserve order and properties
       newCards = [...targetStack.cards, newCardToAdd];
       
       // Optional logging for combo detection (no validation)
@@ -185,13 +200,27 @@ export const handleTableCardDrop = (
     }
     
     const newStack: TemporaryStack = { ...targetStack, cards: newCards };
-    const finalTableCards = [...newTableCards];
-    if (stackIndex !== -1) {
-      finalTableCards[stackIndex] = newStack;
-    } else {
-      // Fallback
-      finalTableCards.push(newStack);
-    }
+    
+    // FIXED: Maintain exact positions to prevent visual jumping
+    // Replace target stack with updated stack, remove dragged card from wherever it was
+    const finalTableCards = tableCards.map((item, index) => {
+      const itemCard = item as Card;
+      const itemStack = item as TemporaryStack;
+      
+      // Replace target stack with updated stack
+      if (itemStack.stackId === targetStack.stackId) {
+        return newStack;
+      }
+      
+      // Remove dragged card (return null, will be filtered out)
+      if (getCardId(itemCard) === getCardId(draggedCard)) {
+        return null;
+      }
+      
+      // Keep all other cards in their exact positions
+      return item;
+    }).filter(item => item !== null); // Remove null entries
+    
     return { ...currentGameState, tableCards: finalTableCards, playerCaptures: newPlayerCaptures };
   }
 

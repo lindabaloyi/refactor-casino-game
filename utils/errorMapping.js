@@ -6,12 +6,7 @@ export const getErrorInfo = (message) => {
   const lowerMessage = message.toLowerCase();
 
   // Trail-related errors
-  if (lowerMessage.includes('trail') && lowerMessage.includes('build')) {
-    return {
-      title: 'Invalid Trail',
-      message: 'Cannot trail this card. A matching build exists - capture it instead!'
-    };
-  }
+  // Removed - validation no longer prevents temporary stack creation with matching builds
   
   if (lowerMessage.includes('trail') && lowerMessage.includes('table')) {
     return {
@@ -71,13 +66,7 @@ export const getErrorInfo = (message) => {
     };
   }
 
-  // Turn-related errors
-  if (lowerMessage.includes('turn') || lowerMessage.includes('not your')) {
-    return {
-      title: 'Wrong Turn',
-      message: 'Wait for your turn to play.'
-    };
-  }
+  // Turn-related errors - REMOVED: No longer validating turns
 
   // Stack-related errors
   if (lowerMessage.includes('staging') && lowerMessage.includes('one')) {

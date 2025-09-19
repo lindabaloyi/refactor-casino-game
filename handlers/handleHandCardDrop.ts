@@ -157,25 +157,51 @@ export const handleHandCardDrop = (
         owner: currentPlayer,
       };
 
-      // Remove the original stack and loose card, add the new combined stack
-      const newTableCards = tableCards
-        .filter(c => 
-          (c as TemporaryStack).stackId !== stagingStack.stackId && 
-          getCardId(c as Card) !== getCardId(targetCard)
-        )
-        .concat([newStack]);
+      // FIXED: Maintain exact positions to prevent visual jumping
+      // Replace staging stack with new combined stack, remove target card from wherever it was
+      const newTableCards = tableCards.map((item, index) => {
+        const itemCard = item as Card;
+        const itemStack = item as TemporaryStack;
+        
+        // Replace staging stack with new combined stack
+        if (itemStack.stackId === stagingStack.stackId) {
+          return newStack;
+        }
+        
+        // Remove target card (return null, will be filtered out)
+        if (getCardId(itemCard) === getCardId(targetCard)) {
+          return null;
+        }
+        
+        // Keep all other cards in their exact positions
+        return item;
+      }).filter(item => item !== null); // Remove null entries
 
       return updateGameState(currentGameState, { tableCards: newTableCards });
     }
 
     // Generate possible actions to help user choose
     const actions = importedGeneratePossibleActions(draggedItem, targetCard, playerHands[currentPlayer], tableCards, playerCaptures, currentPlayer);
-    
-    // --- TEMP BUILD DECISION LOGIC ---
-    // ALWAYS create temp builds for ALL loose card drops to allow build augmentation
-    // Players confirm all staged actions with the tick button for maximum strategic control
-    // This includes direct captures, builds, and combinations - everything gets staged first
-    
+
+    // --- DECISION LOGIC ---
+    // If there are possible actions (capture, build), present them to the player
+    // Only create staging stack if no other actions are possible
+    if (actions.length > 0) {
+      if (actions.length === 1) {
+        // Single action - execute immediately
+        return executeAction(currentGameState, actions[0]);
+      } else {
+        // Multiple actions - show modal for player to choose
+        setModalInfo({
+          title: 'Choose Your Action',
+          message: `What would you like to do with your ${draggedCard.rank}?`,
+          actions: actions,
+        });
+        return currentGameState;
+      }
+    }
+
+    // No actions possible - create staging stack for potential build
     // CASINO RULE: Players can only have one temp build active at a time
     const playerAlreadyHasTempStack = tableCards.some(
       s => (s as TemporaryStack).type === 'temporary_stack' && (s as TemporaryStack).owner === currentPlayer
@@ -184,7 +210,7 @@ export const handleHandCardDrop = (
       showError("You can only have one staging stack at a time.");
       return currentGameState;
     }
-    
+
     return handleCreateStagingStack(currentGameState, draggedCard, targetCard);
   }
 

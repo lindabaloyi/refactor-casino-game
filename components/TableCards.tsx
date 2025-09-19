@@ -218,11 +218,14 @@ const TableCards = ({
                 />
               );
             }
-            // Default to rendering a loose card - fixed key generation
+            // Default to rendering a loose card - fixed key generation with fallback
+            const looseCard = item as LooseCardType;
+            const safeRank = looseCard.rank || 'Unknown';
+            const safeSuit = looseCard.suit || 'Unknown';
             return (
               <LooseCard
-                key={`loose-card-${index}-${(item as LooseCardType).rank}-${(item as LooseCardType).suit}`}
-                card={item as CardType}
+                key={`loose-card-${index}-${safeRank}-${safeSuit}`}
+                card={looseCard}
                 onDropOnCard={memoizedOnDropOnCard}
                 currentPlayer={currentPlayer}
                 onCardPress={onCardPress}

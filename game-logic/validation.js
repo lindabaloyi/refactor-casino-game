@@ -121,15 +121,8 @@ export const validateTrail = (tableCards, card, currentPlayer, round) => {
     };
   }
 
-  // Casino Rule: Cannot trail a card whose value equals any active build's value
-  const value = rankValue(card.rank);
-  const matchingBuild = tableCards.find(c => c.type === 'build' && c.value === value);
-  if (matchingBuild) {
-    return {
-      valid: false,
-      message: `You cannot trail a ${card.rank}. A build of ${value} is active; you must capture or build.`
-    };
-  }
+  // Removed overly restrictive validation - players should be able to create temporary stacks
+  // for building even when there are builds on the table
 
   return { valid: true };
 };

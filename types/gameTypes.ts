@@ -175,8 +175,6 @@ export type ActionType =
   | 'createBuildFromStack'
   | 'extendToMerge'
   | 'createBuildWithValue'
-  | 'confirm_trail'
-  | 'cancel_trail'
   | 'end_game';
 
 // ===== HANDLER FUNCTION TYPES =====

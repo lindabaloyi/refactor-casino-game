@@ -82,8 +82,13 @@ const CardStack: React.FC<CardStackProps> = memo(({
             },
             onDrop: (draggedItem: any) => {
               console.log(`[DropZone] ${stackId} received drop attempt`);
-              onDropStack(draggedItem);
-              return true; // Mark as handled
+              if (onDropStack) {
+                onDropStack(draggedItem);
+                console.log(`[DropZone] ${stackId} handled drop successfully`);
+                return true; // Mark as handled
+              }
+              console.log(`[DropZone] ${stackId} no drop handler available`);
+              return false;
             }
           };
           
@@ -140,8 +145,8 @@ const CardStack: React.FC<CardStackProps> = memo(({
         )
       )}
       
-      {/* Stack indicators */}
-      {cardCount > 1 && (
+      {/* Stack indicators - show card count except for temporary stacks */}
+      {cardCount > 1 && dragSource !== 'temporary_stack' && (
         <View style={styles.stackIndicator}>
           <Text style={styles.stackCount}>{cardCount}+</Text>
         </View>

@@ -101,7 +101,7 @@ const TableCardsSection = React.memo(({
 ));
 
 // Player Hands Section - Show active player hand with their captures on the right
-const PlayerHandsSection = React.memo(({ playerHands, currentPlayer, onDragStart, onDragEnd, onDragMove, playerCaptures, onCardPress = () => {} }: { playerHands: any[], currentPlayer: number, onDragStart: (card: any) => void, onDragEnd: (card: any, position: any) => void, onDragMove: (card: any, position: any) => void, playerCaptures: any[], onCardPress?: (card: any, source: string) => void }) => (
+const PlayerHandsSection = React.memo(({ playerHands, currentPlayer, onDragStart, onDragEnd, onDragMove, playerCaptures, tableCards, onCardPress = () => {} }: { playerHands: any[], currentPlayer: number, onDragStart: (card: any) => void, onDragEnd: (card: any, position: any) => void, onDragMove: (card: any, position: any) => void, playerCaptures: any[], tableCards: any[], onCardPress?: (card: any, source: string) => void }) => (
   <View style={styles.playerHandsSection}>
     <View style={styles.playerHandArea}>
       <PlayerHand
@@ -112,6 +112,7 @@ const PlayerHandsSection = React.memo(({ playerHands, currentPlayer, onDragStart
         onDragEnd={onDragEnd}
         onDragMove={onDragMove}
         currentPlayer={currentPlayer}
+        tableCards={tableCards}
       />
     </View>
     <PlayerCapturedSection 
@@ -246,14 +247,14 @@ function GameBoard({ onRestart }: { onRestart: () => void }) {
       return;
     }
     
-    // Only trail if card came from hand, not from temp stacks
+    // Only trail if card came from hand and was not handled by any drop zone
     if (draggedItem && draggedItem.source === 'hand') {
-      handleTrailCard(draggedItem.card, gameState.currentPlayer, dropPosition);
+      handleTrailCard(draggedItem.card, draggedItem.player, dropPosition);
     }
     
     // Reset drag state
     setDraggedCard(null);
-  }, [gameState.currentPlayer, handleTrailCard]);
+  }, [handleTrailCard]);
 
   // Handle ending the game
   const handleEndGame = useCallback(() => {
@@ -307,6 +308,7 @@ function GameBoard({ onRestart }: { onRestart: () => void }) {
           onDragEnd={handleDragEnd}
           onDragMove={handleDragMove}
           playerCaptures={gameState.playerCaptures}
+          tableCards={gameState.tableCards}
         />
 
         {/* Drag indicator */}
