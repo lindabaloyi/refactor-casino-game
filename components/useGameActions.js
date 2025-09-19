@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { getErrorInfo } from '../utils/errorMapping';
 import { hasAnyContact } from '../utils/simpleContactDetection';
 import { useNotifications as importedUseNotifications } from '../hooks/useNotifications';
+import { useModalManager } from '../hooks/useModalManager';
 import {
   createActionOption as importedCreateActionOption,
   canCreateBuild as importedCanCreateBuild,
@@ -63,8 +64,8 @@ import { analyzeCardStack, validateNewCardAddition, getCandidateTargetValues, va
 
 export const useGameActions = () => {
   const [gameState, setGameState] = useState(initializeGame());
-  const [modalInfo, setModalInfo] = useState(null);
   const [errorModal, setErrorModal] = useState({ visible: false, title: '', message: '' });
+  const { modalInfo, setModalInfo, handleModalAction: modalHandleAction, showModal, closeModal } = useModalManager();
   const { showError, showWarning, showInfo } = importedUseNotifications(setErrorModal);
 
   // Effect to handle end of round and end of game
@@ -229,9 +230,10 @@ export const useGameActions = () => {
   }, []);
 
   const handleModalAction = useCallback((action) => {
-    setGameState(currentGameState => executeAction(currentGameState, action));
-    setModalInfo(null);
-  }, [executeAction]);
+    modalHandleAction(action, (action) => {
+      setGameState(currentGameState => executeAction(currentGameState, action));
+    });
+  }, [modalHandleAction, executeAction]);
 
 
   const handleDropOnCard = useCallback((draggedItem, targetInfo) => {
