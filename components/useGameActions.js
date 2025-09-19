@@ -8,9 +8,9 @@ import {
   canCreateBuild as importedCanCreateBuild,
   generatePossibleActions as importedGeneratePossibleActions
 } from '../utils/gameActionHelpers.ts';
-import { handleTableCardDrop } from '../handlers/handleTableCardDrop';
-import { handleHandCardDrop } from '../handlers/handleHandCardDrop';
-import { handleTemporaryStackDrop } from '../handlers/handleTemporaryStackDrop';
+import { handleTableCardDrop } from '../handlers/handleTableCardDrop.ts';
+import { handleHandCardDrop } from '../handlers/handleHandCardDrop.ts';
+import { handleTemporaryStackDrop } from '../handlers/handleTemporaryStackDrop.ts';
 import {
   initializeGame,
   updateGameState,
