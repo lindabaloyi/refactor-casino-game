@@ -181,6 +181,7 @@ const TableCards = ({
 }: TableCardsProps) => {
   const memoizedOnDropOnCard = useCallback(onDropOnCard, [onDropOnCard]);
 
+
   return (
     <View style={styles.tableCards}>
       {/* Horizontal card container using flexbox - no ScrollView interference */}

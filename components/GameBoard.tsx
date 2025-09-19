@@ -20,11 +20,22 @@ import BurgerMenu from './BurgerMenu';
 import { useGameActions } from './useGameActions';
 
 // Status Section Component - exactly like web version
-const StatusSection = React.memo(({ round }: { round: number }) => (
-  <View style={styles.statusSection}>
-    <Text style={styles.statusText}>Round: {round}</Text>
-  </View>
-));
+const StatusSection = React.memo(({ round, currentPlayer }: { round: number, currentPlayer: number }) => {
+  const getPlayerColor = (player: number) => {
+    return player === 0 ? '#FF5722' : '#2196F3';
+  };
+
+  return (
+    <View style={styles.statusSection}>
+      <View style={styles.statusContent}>
+        <Text style={styles.statusText}>Round: {round}</Text>
+        <View style={[styles.playerTurnTag, { backgroundColor: getPlayerColor(currentPlayer) }]}>
+          <Text style={styles.playerTurnText}>P{currentPlayer + 1}</Text>
+        </View>
+      </View>
+    </View>
+  );
+});
 
 // Opponent Captured Cards Section - Only opponent, minimal styling
 const OpponentCapturedSection = React.memo(({ playerCaptures, currentPlayer, onCardPress = () => {}, onDragStart, onDragEnd, onDragMove }: { playerCaptures: any[], currentPlayer: number, onCardPress?: (card: any, source: string) => void, onDragStart: (card: any) => void, onDragEnd: (card: any, position: any) => void, onDragMove: (card: any, position: any) => void }) => {
@@ -101,27 +112,39 @@ const TableCardsSection = React.memo(({
 ));
 
 // Player Hands Section - Show active player hand with their captures on the right
-const PlayerHandsSection = React.memo(({ playerHands, currentPlayer, onDragStart, onDragEnd, onDragMove, playerCaptures, tableCards, onCardPress = () => {} }: { playerHands: any[], currentPlayer: number, onDragStart: (card: any) => void, onDragEnd: (card: any, position: any) => void, onDragMove: (card: any, position: any) => void, playerCaptures: any[], tableCards: any[], onCardPress?: (card: any, source: string) => void }) => (
-  <View style={styles.playerHandsSection}>
-    <View style={styles.playerHandArea}>
-      <PlayerHand
-        player={currentPlayer}
-        cards={playerHands[currentPlayer]}
-        isCurrent={true}
-        onDragStart={onDragStart}
-        onDragEnd={onDragEnd}
-        onDragMove={onDragMove}
+const PlayerHandsSection = React.memo(({ playerHands, currentPlayer, onDragStart, onDragEnd, onDragMove, playerCaptures, tableCards, onCardPress = () => {} }: { playerHands: any[], currentPlayer: number, onDragStart: (card: any) => void, onDragEnd: (card: any, position: any) => void, onDragMove: (card: any, position: any) => void, playerCaptures: any[], tableCards: any[], onCardPress?: (card: any, source: string) => void }) => {
+  const getPlayerColor = (player: number) => {
+    return player === 0 ? '#FF5722' : '#2196F3';
+  };
+
+  return (
+    <View style={styles.playerHandsSection}>
+      <View style={styles.playerHandArea}>
+        <View style={styles.playerHandHeader}>
+          <Text style={styles.playerHandTitle}>Your Hand</Text>
+          <View style={[styles.playerTurnBadge, { backgroundColor: getPlayerColor(currentPlayer) }]}>
+            <Text style={styles.playerTurnBadgeText}>P{currentPlayer + 1}</Text>
+          </View>
+        </View>
+        <PlayerHand
+          player={currentPlayer}
+          cards={playerHands[currentPlayer]}
+          isCurrent={true}
+          onDragStart={onDragStart}
+          onDragEnd={onDragEnd}
+          onDragMove={onDragMove}
+          currentPlayer={currentPlayer}
+          tableCards={tableCards}
+        />
+      </View>
+      <PlayerCapturedSection
+        playerCaptures={playerCaptures}
         currentPlayer={currentPlayer}
-        tableCards={tableCards}
+        onCardPress={onCardPress}
       />
     </View>
-    <PlayerCapturedSection 
-      playerCaptures={playerCaptures}
-      currentPlayer={currentPlayer}
-      onCardPress={onCardPress}
-    />
-  </View>
-));
+  );
+});
 
 // Game Over Section - exactly like web version
 const GameOverSection = React.memo(({ winner, scoreDetails, onRestart }: { winner: number | null, scoreDetails: any, onRestart: () => void }) => {
@@ -277,7 +300,7 @@ function GameBoard({ onRestart }: { onRestart: () => void }) {
       <BurgerMenu onRestart={onRestart} onEndGame={handleEndGame} />
       
       <View style={styles.gameContainer}>
-        <StatusSection round={gameState.round} />
+        <StatusSection round={gameState.round} currentPlayer={gameState.currentPlayer} />
         
         <View style={styles.mainGameArea}>
           <TableCardsSection
@@ -362,10 +385,26 @@ const styles = StyleSheet.create({
     borderBottomWidth: 2,
     borderBottomColor: '#4CAF50',
   },
+  statusContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   statusText: {
     fontSize: 16,
     fontWeight: 'bold',
     color: '#FFFFFF',
+    marginRight: 12,
+  },
+  playerTurnTag: {
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  playerTurnText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: 'bold',
   },
   mainGameArea: {
     flex: 1,
@@ -391,6 +430,30 @@ const styles = StyleSheet.create({
   },
   playerHandArea: {
     flex: 1,
+  },
+  playerHandHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+    paddingBottom: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: '#4CAF50',
+  },
+  playerHandTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  playerTurnBadge: {
+    borderRadius: 8,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+  },
+  playerTurnBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: 'bold',
   },
   playerCapturedArea: {
     alignItems: 'center',

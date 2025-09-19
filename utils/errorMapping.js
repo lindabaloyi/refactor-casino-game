@@ -8,12 +8,6 @@ export const getErrorInfo = (message) => {
   // Trail-related errors
   // Removed - validation no longer prevents temporary stack creation with matching builds
   
-  if (lowerMessage.includes('trail') && lowerMessage.includes('table')) {
-    return {
-      title: 'Invalid Trail',
-      message: 'Card already on table. Drag to capture instead of trailing.'
-    };
-  }
   
   if (lowerMessage.includes('trail') && lowerMessage.includes('own')) {
     return {

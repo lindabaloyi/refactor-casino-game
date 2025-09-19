@@ -105,25 +105,8 @@ export const validateComplexCapture = (stagedCards, captureCard) => {
  * @returns {object} Validation result with valid flag and message.
  */
 export const validateTrail = (tableCards, card, currentPlayer, round) => {
-  // Round 1 restriction: cannot trail if you own a build
-  if (round === 1 && tableCards.some(c => c.type === 'build' && c.owner === currentPlayer)) {
-    return {
-      valid: false,
-      message: "You cannot trail a card while you own a build in the first round. You must capture or build."
-    };
-  }
-
-  // Cannot trail a card if one of the same rank is already on the table
-  if (tableCards.some(c => !c.type && c.rank === card.rank)) {
-    return {
-      valid: false,
-      message: `You cannot trail a ${card.rank} because one is on the table. Try dragging to capture.`
-    };
-  }
-
-  // Removed overly restrictive validation - players should be able to create temporary stacks
-  // for building even when there are builds on the table
-
+  // Removed restrictive trail validation that was interfering with legitimate captures
+  // Players should be able to trail cards freely without build ownership restrictions
   return { valid: true };
 };
 
