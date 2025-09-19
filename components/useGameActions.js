@@ -3,6 +3,11 @@ import { getErrorInfo } from '../utils/errorMapping';
 import { hasAnyContact } from '../utils/simpleContactDetection';
 import { useNotifications as importedUseNotifications } from '../hooks/useNotifications';
 import {
+  createActionOption as importedCreateActionOption,
+  canCreateBuild as importedCanCreateBuild,
+  generatePossibleActions as importedGeneratePossibleActions
+} from '../utils/gameActionHelpers';
+import {
   initializeGame,
   updateGameState,
   handleBuild,
@@ -165,20 +170,6 @@ export const useGameActions = () => {
     });
   }, [showError]);
 
-  // Helper function to create action options for modal
-  const createActionOption = (type, label, payload) => ({
-    type,
-    label,
-    payload
-  });
-
-  // Helper function to check if player can create a build
-  const canCreateBuild = (playerHand, draggedCard, buildValue) => {
-    return playerHand.some(c => 
-      rankValue(c.rank) === buildValue &&
-      (c.rank !== draggedCard.rank || c.suit !== draggedCard.suit)
-    );
-  };
 
   // Centralized helper to execute actions and update state.
   // Wrapped in useCallback to be stable and prevent re-renders of dependent hooks.
@@ -242,79 +233,6 @@ export const useGameActions = () => {
     setModalInfo(null);
   }, [executeAction]);
 
-  // Helper function to generate possible actions for loose card drops
-  const generatePossibleActions = (draggedItem, looseCard, playerHand, tableCards, playerCaptures, currentPlayer) => {
-    const actions = [];
-    const { card: draggedCard } = draggedItem;
-    const remainingHand = playerHand.filter(c =>
-      c.rank !== draggedCard.rank || c.suit !== draggedCard.suit
-    );
-
-    const opponentIndex = 1 - currentPlayer;
-    const opponentCaptures = playerCaptures[opponentIndex] || [];
-
-    const canPlayerCreateBuild = !tableCards.some(c => c.type === 'build' && c.owner === currentPlayer);
-
-    // --- Possibility 1: Capture ---
-    if (rankValue(draggedCard.rank) === rankValue(looseCard.rank)) {
-      actions.push(createActionOption(
-        'capture',
-        `Capture ${looseCard.rank}`,
-        { draggedItem, targetCard: looseCard }
-      ));
-    }
-
-    // --- Possibility 2: Same-Value Build ---
-    if (canPlayerCreateBuild && rankValue(draggedCard.rank) === rankValue(looseCard.rank)) {
-      // To create a same-value build, you must have another card of the same rank in your hand to capture it.
-      const canCaptureBuild = remainingHand.some(c => rankValue(c.rank) === rankValue(draggedCard.rank));
-      if (canCaptureBuild) {
-        actions.push(createActionOption(
-          'build',
-          `Build ${rankValue(draggedCard.rank)}`,
-          { draggedItem, targetCard: looseCard, buildValue: rankValue(draggedCard.rank) }
-        ));
-      }
-    }
-
-    // --- Possibility 3: Sum Build ---
-    if (canPlayerCreateBuild) {
-      const sumBuildValue = rankValue(draggedCard.rank) + rankValue(looseCard.rank);
-      if (sumBuildValue <= 10) {
-        // To create a sum build, you must have a card in hand matching the sum.
-        const canCaptureSumBuild = remainingHand.some(c => rankValue(c.rank) === sumBuildValue);
-        if (canCaptureSumBuild) {
-          const biggerCard = rankValue(draggedCard.rank) > rankValue(looseCard.rank) ? draggedCard : looseCard;
-          const smallerCard = rankValue(draggedCard.rank) > rankValue(looseCard.rank) ? looseCard : draggedCard;
-          actions.push(createActionOption(
-            'build',
-            `Build ${sumBuildValue}`,
-            {
-              draggedItem,
-              targetCard: looseCard,
-              buildValue: sumBuildValue,
-              biggerCard,
-              smallerCard
-            }
-          ));
-        }
-      }
-    }
-
-    // --- Possibility 4: Base Builds (if applicable) ---
-    if (canPlayerCreateBuild && rankValue(draggedCard.rank) !== rankValue(looseCard.rank)) {
-      const baseBuildCombinations = findBaseBuilds(draggedCard, looseCard, tableCards);
-      baseBuildCombinations.forEach(combination => {
-        actions.push(createActionOption(
-          'baseBuild',
-          `Build ${rankValue(draggedCard.rank)} on ${looseCard.rank} with ${combination.map(c => c.rank).join('+')}`,
-          { draggedItem, baseCard: looseCard, otherCardsInBuild: combination }
-        ));
-      });
-    }
-
-    return actions;
-  };
 
   const handleDropOnCard = useCallback((draggedItem, targetInfo) => {
     if (!targetInfo || !draggedItem) {
@@ -546,13 +464,13 @@ export const useGameActions = () => {
           
           // Complex capture: if hand card can partition the stack  
           if (sumOfStack % captureValue === 0 && canPartitionIntoSums(stack.cards, captureValue)) {
-            actions.push(createActionOption('capture', `Capture for ${captureValue}`, { draggedItem, targetCard: stack }));
+            actions.push(importedCreateActionOption('capture', `Capture for ${captureValue}`, { draggedItem, targetCard: stack }));
           }
 
           // --- Possibility 2: Create a permanent build ---
           const buildValidation = validateTemporaryStackBuild(stack, draggedCard, playerHand, tableCards, currentPlayer);
           if (buildValidation.valid) {
-            actions.push(createActionOption('createBuildFromStack', `Build ${buildValidation.newValue}`, { draggedItem, stackToBuildFrom: stack }));
+            actions.push(importedCreateActionOption('createBuildFromStack', `Build ${buildValidation.newValue}`, { draggedItem, stackToBuildFrom: stack }));
           }
 
           // --- Decision Logic ---
@@ -629,7 +547,7 @@ export const useGameActions = () => {
         const { card: draggedCard } = draggedItem;
         
         // Generate possible actions to help user choose
-        const actions = generatePossibleActions(draggedItem, targetCard, playerHands[currentPlayer], tableCards, playerCaptures, currentPlayer);
+        const actions = importedGeneratePossibleActions(draggedItem, targetCard, playerHands[currentPlayer], tableCards, playerCaptures, currentPlayer);
         
         // --- TEMP BUILD DECISION LOGIC ---
         // ALWAYS create temp builds for ALL loose card drops to allow build augmentation
@@ -707,7 +625,7 @@ export const useGameActions = () => {
 
         // Possibility 1: Capture the build
         if (rankValue(draggedCard.rank) === buildToDropOn.value) {
-          actions.push(createActionOption(
+          actions.push(importedCreateActionOption(
             'capture', `Capture Build (${buildToDropOn.value})`,
             { draggedItem, targetCard: buildToDropOn }
           ));
@@ -721,7 +639,7 @@ export const useGameActions = () => {
             // Player has a build, so this is a potential "Extend-to-Merge"
             const validation = validateExtendToMerge(playerOwnsBuild, buildToDropOn, draggedCard);
             if (validation.valid) {
-              actions.push(createActionOption(
+              actions.push(importedCreateActionOption(
                 'extendToMerge',
                 `Merge into your build of ${playerOwnsBuild.value}`,
                 { draggedItem, opponentBuild: buildToDropOn, ownBuild: playerOwnsBuild }
@@ -732,7 +650,7 @@ export const useGameActions = () => {
             const validation = validateAddToOpponentBuild(buildToDropOn, draggedCard, playerHand, tableCards, currentPlayer);
             if (validation.valid) {
               const newBuildValue = buildToDropOn.value + rankValue(draggedCard.rank);
-              actions.push(createActionOption('addToOpponentBuild', `Extend to ${newBuildValue}`, { draggedItem, buildToAddTo: buildToDropOn }));
+              actions.push(importedCreateActionOption('addToOpponentBuild', `Extend to ${newBuildValue}`, { draggedItem, buildToAddTo: buildToDropOn }));
             }
           }
         }
@@ -741,7 +659,7 @@ export const useGameActions = () => {
         if (buildToDropOn.owner === currentPlayer) {
           const validation = validateAddToOwnBuild(buildToDropOn, draggedCard, playerHand);
           if (validation.valid) {
-            actions.push(createActionOption(
+            actions.push(importedCreateActionOption(
               'addToOwnBuild', `Add to Build (${validation.newValue})`,
               { draggedItem, buildToAddTo: buildToDropOn }
             ));
@@ -882,7 +800,7 @@ export const useGameActions = () => {
 
       if (tableCardsInStack.length > 0 && sumOfTableCards % captureValue === 0) {
         if (sumOfTableCards === captureValue || canPartitionIntoSums(tableCardsInStack, captureValue)) {
-          actions.push(createActionOption('capture', `Capture for ${captureValue}`, {
+          actions.push(importedCreateActionOption('capture', `Capture for ${captureValue}`, {
             draggedItem: { card: handCard, source: 'hand' },
             targetCard: stack // The whole stack is the target
           }));
@@ -892,7 +810,7 @@ export const useGameActions = () => {
       // --- Possibility 2: Build ---
       const possibleBuilds = findPossibleBuildsFromStack(stack, playerHand, tableCards, currentPlayer);
       possibleBuilds.forEach(value => {
-        actions.push(createActionOption('createBuildWithValue', `Create a Build of ${value}`, {
+        actions.push(importedCreateActionOption('createBuildWithValue', `Create a Build of ${value}`, {
           stack: stack,
           buildValue: value,
           draggedItem: { card: handCard, source: 'hand' }
@@ -917,7 +835,7 @@ export const useGameActions = () => {
       });
       return currentGameState;
     });
-  }, [showError, setModalInfo, createActionOption, executeAction]);
+  }, [showError, setModalInfo, importedCreateActionOption, executeAction]);
 
   return { 
     gameState, 
