@@ -9,7 +9,31 @@ import {
   Alert 
 } from 'react-native';
 
-const GameActions = ({ 
+// --- Types ---
+type CardSource = 'hand' | 'table';
+
+type SelectedCard = {
+  rank: string;
+  suit: string;
+  source: CardSource;
+  [key: string]: any;
+};
+
+type GameState = {
+  [key: string]: any;
+};
+
+type GameActionsProps = {
+  selectedCards: SelectedCard[];
+  onTrail: () => void;
+  onCapture: () => void;
+  onBuild: (value: number) => void;
+  onClearSelection: () => void;
+  gameState: GameState;
+  landscape?: boolean;
+};
+
+const GameActions: React.FC<GameActionsProps> = ({ 
   selectedCards, 
   onTrail, 
   onCapture, 
@@ -18,15 +42,15 @@ const GameActions = ({
   gameState,
   landscape = false
 }) => {
-  const [buildModalVisible, setBuildModalVisible] = useState(false);
-  const [buildValue, setBuildValue] = useState('');
+  const [buildModalVisible, setBuildModalVisible] = useState<boolean>(false);
+  const [buildValue, setBuildValue] = useState<string>('');
 
   const handCard = selectedCards.find(c => c.source === 'hand');
   const tableCards = selectedCards.filter(c => c.source === 'table');
 
-  const canTrail = handCard && tableCards.length === 0;
-  const canCapture = handCard && tableCards.length > 0;
-  const canBuild = handCard && tableCards.length >= 0; // Can build with just hand card or hand + table cards
+  const canTrail = !!handCard && tableCards.length === 0;
+  const canCapture = !!handCard && tableCards.length > 0;
+  const canBuild = !!handCard && tableCards.length >= 0; // Can build with just hand card or hand + table cards
 
   const handleBuild = () => {
     setBuildModalVisible(true);
@@ -44,7 +68,7 @@ const GameActions = ({
     setBuildValue('');
   };
 
-  const getSelectedCardsText = () => {
+  const getSelectedCardsText = (): string => {
     if (selectedCards.length === 0) return 'No cards selected';
     
     const handCards = selectedCards.filter(c => c.source === 'hand');
