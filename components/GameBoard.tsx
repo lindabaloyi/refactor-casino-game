@@ -249,22 +249,15 @@ function GameBoard({ onRestart }: { onRestart: () => void }) {
     // args could contain { card, position } or just be the card
   }, []);
 
-  const handleDragEnd = useCallback((args?: any) => {
-    // Handle both old format (two params) and new format (single args object)
-    let draggedItem, dropPosition;
+  const handleDragEnd = useCallback((draggedItem?: any, dropPosition?: any) => {
+    // Handle the two-parameter format from DraggableCard: onDragEnd(draggedItem, dropPosition)
+    // This matches the working code format
     
-    if (args && typeof args === 'object' && args.draggedItem) {
-      // New format: { draggedItem, dropPosition }
-      draggedItem = args.draggedItem;
-      dropPosition = args.dropPosition;
-    } else {
-      // Old format: just the dragged item
-      draggedItem = args;
-      dropPosition = {};
-    }
+    console.log(`🎯 GAME BOARD: handleDragEnd called with dropPosition.handled=${dropPosition?.handled}`);
     
     // Check if drop was handled by a component drop zone
     if (dropPosition && dropPosition.handled) {
+      console.log(`✅ GAME BOARD: Drop was handled, skipping trail`);
       // Reset drag state only
       setDraggedCard(null);
       return;
@@ -272,6 +265,7 @@ function GameBoard({ onRestart }: { onRestart: () => void }) {
     
     // Only trail if card came from hand and was not handled by any drop zone
     if (draggedItem && draggedItem.source === 'hand') {
+      console.log(`🎯 GAME BOARD: Drop not handled, trailing card ${draggedItem.card?.rank}`);
       handleTrailCard(draggedItem.card, draggedItem.player, dropPosition);
     }
     

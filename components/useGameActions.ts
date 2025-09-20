@@ -73,7 +73,8 @@ import {
   ActionOption,
   ModalInfo,
   TemporaryStack,
-  GameActionsReturn
+  GameActionsReturn,
+  Build
 } from '../types/gameTypes';
 
 export const useGameActions = (): GameActionsReturn => {
@@ -214,6 +215,8 @@ export const useGameActions = (): GameActionsReturn => {
   }, [modalHandleAction, executeAction]);
 
   const handleDropOnCard = useCallback((draggedItem: DraggedItem, targetInfo: TargetInfo): void => {
+    console.log(`🎯 DROP ON CARD: ${draggedItem.source} -> ${targetInfo.type}`, { draggedItem, targetInfo });
+    
     if (!targetInfo || !draggedItem) {
       console.warn("Drop action is missing target or dragged item information.");
       return;
@@ -231,7 +234,7 @@ export const useGameActions = (): GameActionsReturn => {
       const draggedCard = draggedItem.card; // May be undefined for temporary stacks
       const draggedSource = draggedItem.source;
 
-      // Debug logging for troubleshooting
+      console.log(`🎯 DROP PROCESSING: Player ${currentPlayer + 1} dropping ${draggedCard?.rank}${draggedCard?.suit} from ${draggedSource} onto ${targetInfo.type}`);
 
       // Turn validation removed - players can drop anytime
 
@@ -239,16 +242,104 @@ export const useGameActions = (): GameActionsReturn => {
       if (draggedSource === 'table' || draggedSource === 'opponentCapture' || draggedSource === 'captured') {
         return handleTableCardDrop(draggedItem, targetInfo, currentGameState, showError);
       } else if (draggedSource === 'hand') {
-        return handleHandCardDrop(
-          draggedItem,
-          targetInfo,
-          currentGameState,
-          showError,
-          setModalInfo,
-          executeAction,
-          importedCreateActionOption,
-          importedGeneratePossibleActions
-        );
+        // Handle hand card drops with inline build logic to prevent trail fallback
+        if (targetInfo.type === 'build') {
+          // INLINE BUILD DROP LOGIC - Prevents trail fallback when showing modal
+          console.log(`🎯 BUILD DROP: Processing build drop for ${draggedCard.rank} on build ${targetInfo.buildId}`);
+          
+          const buildToDropOn = tableCards.find(b =>
+            (b as any).type === 'build' && (b as any).buildId === targetInfo.buildId
+          ) as Build;
+          
+          if (!buildToDropOn) {
+            console.log(`❌ BUILD DROP: Build ${targetInfo.buildId} not found`);
+            showError("Target build not found on table. The build may have already been captured.");
+            return currentGameState;
+          }
+
+          console.log(`✅ BUILD DROP: Found build owned by player ${buildToDropOn.owner + 1}, current player is ${currentPlayer + 1}`);
+          const playerHand = playerHands[currentPlayer];
+          const actions: ActionOption[] = [];
+
+          // Possibility 1: Capture the build
+          if (rankValue(draggedCard.rank) === buildToDropOn.value) {
+            actions.push(importedCreateActionOption(
+              'capture', `Capture Build (${buildToDropOn.value})`,
+              { draggedItem, targetCard: buildToDropOn }
+            ));
+          }
+
+          // Possibility 2: Extend an opponent's build
+          if (buildToDropOn.owner !== currentPlayer) {
+            const playerOwnsBuild = tableCards.find(c =>
+              (c as any).type === 'build' && (c as any).owner === currentPlayer
+            ) as Build;
+
+            if (playerOwnsBuild) {
+              // Player has a build, so this is a potential "Extend-to-Merge"
+              const validation = validateExtendToMerge(playerOwnsBuild, buildToDropOn, draggedCard);
+              if (validation.valid) {
+                actions.push(importedCreateActionOption(
+                  'extendToMerge',
+                  `Merge into your build of ${playerOwnsBuild.value}`,
+                  { draggedItem, opponentBuild: buildToDropOn, ownBuild: playerOwnsBuild }
+                ));
+              }
+            } else {
+              // Standard "Add to Opponent Build"
+              const validation = validateAddToOpponentBuild(buildToDropOn, draggedCard, playerHand, tableCards, currentPlayer);
+              if (validation.valid) {
+                const newBuildValue = buildToDropOn.value + rankValue(draggedCard.rank);
+                actions.push(importedCreateActionOption('addToOpponentBuild', `Extend to ${newBuildValue}`, { draggedItem, buildToAddTo: buildToDropOn }));
+              }
+            }
+          }
+
+          // Possibility 3: Add to your own build
+          if (buildToDropOn.owner === currentPlayer) {
+            const validation = validateAddToOwnBuild(buildToDropOn, draggedCard, playerHand);
+            if (validation.valid) {
+              actions.push(importedCreateActionOption(
+                'addToOwnBuild', `Add to Build (${validation.newValue})`,
+                { draggedItem, buildToAddTo: buildToDropOn }
+              ));
+            }
+          }
+
+          // --- Decision Logic ---
+          if (actions.length === 0) {
+            if (buildToDropOn.owner === currentPlayer) {
+              // Try to get a more specific error from validation
+              const validation = validateAddToOwnBuild(buildToDropOn, draggedCard, playerHand);
+              showError(validation.message || "You cannot add this card to your own build.");
+            } else {
+              const validation = validateAddToOpponentBuild(buildToDropOn, draggedCard, playerHand, tableCards, currentPlayer);
+              showError(validation.message || `Invalid move on build of ${buildToDropOn.value}.`);
+            }
+            return currentGameState;
+          } else if (actions.length === 1) {
+            return executeAction(currentGameState, actions[0]);  // Immediate execution
+          } else {
+            setModalInfo({  // Show modal for multiple choices
+              title: 'Choose Your Action',
+              message: `What would you like to do with your ${draggedCard.rank}?`,
+              actions: actions,
+            });
+            return currentGameState;  // State unchanged, but drop is "handled" via modal
+          }
+        } else {
+          // For non-build targets, use external handler (loose cards, temp stacks)
+          return handleHandCardDrop(
+            draggedItem,
+            targetInfo,
+            currentGameState,
+            showError,
+            setModalInfo,
+            executeAction,
+            importedCreateActionOption,
+            importedGeneratePossibleActions
+          );
+        }
       } else if (draggedSource === 'temporary_stack') {
         return handleTemporaryStackDrop(draggedItem, targetInfo, currentGameState, showError);
       } else {
