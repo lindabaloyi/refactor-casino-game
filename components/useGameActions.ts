@@ -201,6 +201,8 @@ export const useGameActions = (): GameActionsReturn => {
         return handleCreateBuildFromStack(currentGameState, draggedItem, action.payload.stackToBuildFrom);
       case 'extendToMerge':
         return handleExtendToMerge(currentGameState, draggedItem.card, action.payload.opponentBuild, action.payload.ownBuild);
+      case 'reinforceOpponentBuild':
+        return handleReinforceOpponentBuildWithStack(currentGameState, action.payload.stack, action.payload.targetBuild);
       case 'createBuildWithValue':
         return handleCreateBuildWithValue(currentGameState, action.payload.stack, action.payload.buildValue);
       default:
@@ -423,6 +425,20 @@ export const useGameActions = (): GameActionsReturn => {
           buildValue: value,
           draggedItem: { card: handCard, source: 'hand', player: currentPlayer }
         }));
+      });
+
+      // --- Possibility 3: Reinforce Opponent's Build ---
+      const opponentBuilds = tableCards.filter(card => (card as any).type === 'build' && (card as any).owner !== currentPlayer);
+      opponentBuilds.forEach(build => {
+        const buildTyped = build as Build;
+        const validation = validateReinforceOpponentBuildWithStack(stack, buildTyped, currentPlayer);
+        if (validation.valid) {
+          actions.push(importedCreateActionOption('reinforceOpponentBuild', `Reinforce opponent's build of ${buildTyped.value}`, {
+            stack: stack,
+            targetBuild: buildTyped,
+            draggedItem: { card: handCard, source: 'hand', player: currentPlayer }
+          }));
+        }
       });
 
       // --- Decision Logic ---

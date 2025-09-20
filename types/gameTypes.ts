@@ -25,6 +25,7 @@ export interface TemporaryStack {
   stackId: string;
   cards: Card[];
   owner: number;
+  targetBuildId?: string; // For staging stacks targeting opponent's builds
 }
 
 export type TableEntity = Card | Build | TemporaryStack;
@@ -79,6 +80,7 @@ export interface ActionPayload {
   ownBuild?: Build;
   stackToBuildFrom?: TemporaryStack;
   stack?: TemporaryStack;
+  targetBuild?: Build;
   card?: Card;
   currentPlayer?: number;
 }

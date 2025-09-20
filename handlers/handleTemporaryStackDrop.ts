@@ -80,13 +80,9 @@ export const handleTemporaryStackDrop = (
         }
         return handleMergeIntoOwnBuild(currentGameState, stagingStack, buildToDropOn);
       } else {
-        // This is the new "Reinforce Opponent's Build" action that does NOT end the turn.
-        const validation = validateReinforceOpponentBuildWithStack(stagingStack, buildToDropOn, currentPlayer);
-        if (!validation.valid) {
-          showError(validation.message);
-          return currentGameState; // Snap back
-        }
-        return handleReinforceOpponentBuildWithStack(currentGameState, stagingStack, buildToDropOn);
+        // Disable auto-play: Keep as staging stack instead of auto-reinforcing
+        // Player can add more cards and use the existing done button to finalize
+        return currentGameState;
       }
     }
   }
