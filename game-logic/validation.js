@@ -7,6 +7,21 @@ import { rankValue, calculateCardSum, isValidBuildType } from './card-operations
 import { canPartitionIntoSums } from './algorithms.js';
 
 /**
+ * Helper function to check if a player has an active (permanent) build.
+ * This excludes temporary stacks which should not count toward the build limit.
+ * @param {Array} tableCards - The cards on the table.
+ * @param {number} playerIndex - The index of the player to check.
+ * @returns {boolean} True if the player has an active permanent build.
+ */
+const hasActiveBuild = (tableCards, playerIndex) => {
+  return tableCards.some(item =>
+    item.type === 'build' &&
+    item.owner === playerIndex &&
+    item.isExtendable !== undefined // Only permanent builds have this property
+  );
+};
+
+/**
  * Validates if a build can be created with the given parameters.
  * @param {Array} playerHand - The current player's hand.
  * @param {object} playerCard - The card played from the hand.
@@ -16,15 +31,12 @@ import { canPartitionIntoSums } from './algorithms.js';
  * @returns {boolean} True if the build is valid.
  */
 export const validateBuild = (playerHand, playerCard, buildValue, tableCards, currentPlayer) => {
-  // Check if player already owns a build
-  const playerAlreadyHasBuild = tableCards.some(
-    item => item.type === 'build' && item.owner === currentPlayer
-  );
-
-  if (playerAlreadyHasBuild) {
+  // Check if player already owns an active (permanent) build
+  // This excludes temporary stacks which should not count toward the build limit
+  if (hasActiveBuild(tableCards, currentPlayer)) {
     return {
       valid: false,
-      message: "You can only have one build at a time."
+      message: "You can only have one active build at a time. Use temp builds for card manipulation."
     };
   }
 
@@ -107,27 +119,19 @@ export const validateComplexCapture = (stagedCards, captureCard) => {
 export const validateTrail = (tableCards, card, currentPlayer, round) => {
   // CASINO RULE: Players cannot trail while they have an active build (first round only)
   if (round === 1) {
-    const playerHasActiveBuild = tableCards.some(
-      item => item.type === 'build' && item.owner === currentPlayer
-    );
-
-    if (playerHasActiveBuild) {
+    if (hasActiveBuild(tableCards, currentPlayer)) {
       return {
         valid: false,
-        message: "Cannot trail while you own a build. Capture or build instead."
+        message: "Cannot trail while you own an active build. Capture, build, or use temp builds instead."
       };
     }
   }
 
   // CASINO RULE: Players can only have one active build at a time
-  const playerHasActiveBuild = tableCards.some(
-    item => item.type === 'build' && item.owner === currentPlayer
-  );
-
-  if (playerHasActiveBuild) {
+  if (hasActiveBuild(tableCards, currentPlayer)) {
     return {
       valid: false,
-      message: "You can only have one build at a time."
+      message: "You can only have one active build at a time. Use temp builds for card manipulation."
     };
   }
 
@@ -141,12 +145,9 @@ export const validateAddToOpponentBuild = (build, playerCard, playerHand, tableC
     return { valid: false, message: "You cannot use this action on your own build." };
   }
 
-  // Rule 2: Player cannot already have a build of their own
-  const playerAlreadyHasBuild = tableCards.some(
-    item => item.type === 'build' && item.owner === currentPlayer
-  );
-  if (playerAlreadyHasBuild) {
-    return { valid: false, message: "You cannot extend an opponent's build while you have your own." };
+  // Rule 2: Player cannot already have an active build of their own
+  if (hasActiveBuild(tableCards, currentPlayer)) {
+    return { valid: false, message: "You cannot extend an opponent's build while you have your own active build. Use temp builds instead." };
   }
 
   // Rule 3: Build must be simple and extendable
@@ -316,12 +317,9 @@ export const validateExtendToMerge = (ownBuild, opponentBuild, handCard) => {
  * @returns {Array<number>} An array of numbers representing the valid build values.
  */
 export const findPossibleBuildsFromStack = (stack, playerHand, tableCards, currentPlayer) => {
-  // Rule 1: Player cannot already have a build.
-  const playerAlreadyHasBuild = tableCards.some(
-    item => item.type === 'build' && item.owner === currentPlayer
-  );
-  if (playerAlreadyHasBuild) {
-    return []; // Cannot create a new build if one is already owned.
+  // Rule 1: Player cannot already have an active build.
+  if (hasActiveBuild(tableCards, currentPlayer)) {
+    return []; // Cannot create a new active build if one is already owned.
   }
 
   // Rule 2: The stack must contain exactly one card from the player's hand.

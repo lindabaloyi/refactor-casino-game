@@ -102,7 +102,7 @@ export const useGameActions = (): GameActionsReturn => {
 
           // After round 1, start round 2
           if (currentState.round === 1) {
-            showInfo("Round 1 over. Starting Round 2!");
+            showInfo("🎰 Round 1 Complete! 🎰\n\nStarting Round 2 with table cards carried over...", 3000);
             return startNextRound(currentState);
           }
           // After round 2, end the game
@@ -486,6 +486,6 @@ export const useGameActions = (): GameActionsReturn => {
     handleCancelStagingStackAction, 
     handleStageOpponentCardAction, 
     handleConfirmStagingStackAction,
-    closeErrorModal: () => setErrorModal({ visible: false, title: '', message: '' })
+    closeErrorModal: () => setErrorModal({ visible: false, title: '', message: '', autoDismissMs: undefined })
   };
 };

@@ -22,11 +22,14 @@ export const useNotifications = (setErrorModal: (modal: ErrorModalState) => void
       message: message,
     });
   },
-  showInfo: (message: string): void => {
+  showInfo: (message: string, autoDismissMs?: number): void => {
+    const dismissTime = autoDismissMs || (message.includes('Round') ? 3000 : undefined);
+
     setErrorModal({
       visible: true,
       title: 'Game Info',
       message: message,
+      autoDismissMs: dismissTime,
     });
   },
 });

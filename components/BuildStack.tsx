@@ -95,6 +95,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: 'bold',
     marginBottom: 4,
+    color: '#000000',
   },
   cardsContainer: {
     flexDirection: 'row',

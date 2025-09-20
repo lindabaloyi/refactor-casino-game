@@ -146,32 +146,23 @@ const PlayerHandsSection = React.memo(({ playerHands, currentPlayer, onDragStart
   );
 });
 
-// Game Over Section - exactly like web version
+// Game Over Section - Casino-styled scoring UI
 const GameOverSection = React.memo(({ winner, scoreDetails, onRestart }: { winner: number | null, scoreDetails: any, onRestart: () => void }) => {
-  if (!scoreDetails) {
-    return (
-      <View style={styles.gameOverSection}>
-        <Text style={styles.gameOverTitle}>Game Over</Text>
-        <Text style={styles.gameOverText}>Calculating scores...</Text>
-      </View>
-    );
-  }
-
   const renderPlayerScores = (playerIndex) => {
     const details = scoreDetails[playerIndex];
     return (
       <View key={playerIndex} style={styles.playerScoreColumn}>
-        <Text style={styles.playerScoreTitle}>Player {playerIndex + 1}</Text>
+        <Text style={styles.playerScoreTitle}>🎰 Player {playerIndex + 1} 🎰</Text>
         <View style={styles.pointsTally}>
-          <Text style={styles.pointsLabel}>Points</Text>
+          <Text style={styles.pointsLabel}>Total Points</Text>
           <Text style={styles.totalScore}>{details.total}</Text>
         </View>
         <View style={styles.scoreBreakdown}>
-          <Text style={styles.scoreItem}>Cards ({details.cardCount}): {details.mostCards} pt</Text>
-          <Text style={styles.scoreItem}>Spades ({details.spadeCount}): {details.mostSpades} pts</Text>
-          <Text style={styles.scoreItem}>Aces: {details.aces} pts</Text>
-          {details.bigCasino > 0 && <Text style={styles.scoreItem}>Big Casino (10♦): {details.bigCasino} pts</Text>}
-          {details.littleCasino > 0 && <Text style={styles.scoreItem}>Little Casino (2♠): {details.littleCasino} pts</Text>}
+          <Text style={styles.scoreItem}>🃏 Cards ({details.cardCount}): {details.mostCards} pts</Text>
+          <Text style={styles.scoreItem}>♠️ Spades ({details.spadeCount}): {details.mostSpades} pts</Text>
+          <Text style={styles.scoreItem}>🃏 Aces: {details.aces} pts</Text>
+          {details.bigCasino > 0 && <Text style={styles.scoreItem}>💎 Big Casino (10♦): {details.bigCasino} pts</Text>}
+          {details.littleCasino > 0 && <Text style={styles.scoreItem}>🎯 Little Casino (2♠): {details.littleCasino} pts</Text>}
         </View>
       </View>
     );
@@ -179,20 +170,34 @@ const GameOverSection = React.memo(({ winner, scoreDetails, onRestart }: { winne
 
   return (
     <View style={styles.gameOverSection}>
-      <Text style={styles.gameOverTitle}>Game Over</Text>
+      <Text style={styles.gameOverTitle}>🎰 GAME OVER 🎰</Text>
+      <Text style={styles.gameOverSubtitle}>Final Scores</Text>
       <View style={styles.finalScoresContainer}>
         {renderPlayerScores(0)}
         {renderPlayerScores(1)}
       </View>
-      <Text style={styles.winnerDeclaration}>
-        {winner !== null ? `Winner: Player ${winner + 1}` : "It's a Tie!"}
-      </Text>
-      <TouchableOpacity
-        style={styles.playAgainButton}
-        onPress={onRestart}
-      >
-        <Text style={styles.playAgainButtonText}>Play Again</Text>
-      </TouchableOpacity>
+      <View style={styles.winnerContainer}>
+        <Text style={styles.winnerDeclaration}>
+          {winner !== null ? `🏆 Winner: Player ${winner + 1} 🏆` : "🤝 It's a Tie! 🤝"}
+        </Text>
+      </View>
+      <View style={styles.buttonContainer}>
+        <TouchableOpacity
+          style={styles.playAgainButton}
+          onPress={onRestart}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.playAgainButtonText}>🎮 Play Again 🎮</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.newGameButton}
+          onPress={onRestart}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.newGameButtonText}>🎲 New Game 🎲</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 });
@@ -218,19 +223,7 @@ function GameBoard({ onRestart }: { onRestart: () => void }) {
   // Track dragging state for UI optimization
   const isDragging = !!draggedCard;
 
-  // State for round transition animation
-  const [showRoundTransition, setShowRoundTransition] = React.useState(false);
-
-  // Effect to show round transition animation when round changes to 2
-  React.useEffect(() => {
-    if (gameState.round === 2 && !showRoundTransition) {
-      setShowRoundTransition(true);
-      const timer = setTimeout(() => {
-        setShowRoundTransition(false);
-      }, 4000); // Show animation for 4 seconds
-      return () => clearTimeout(timer);
-    }
-  }, [gameState.round, showRoundTransition]);
+  // Removed roundTransition state and effect - using ErrorModal for round transitions instead
 
   // Keyboard navigation handler (adapted for mobile)
   const handleKeyDown = useCallback((event) => {
@@ -338,12 +331,7 @@ function GameBoard({ onRestart }: { onRestart: () => void }) {
           />
         )}
 
-        {showRoundTransition && (
-          <View style={styles.roundTransition}>
-            <Text style={styles.roundTransitionTitle}>Round 2</Text>
-            <Text style={styles.roundTransitionText}>Table cards carried over from Round 1</Text>
-          </View>
-        )}
+        {/* Removed roundTransition overlay - using ErrorModal for round transitions instead */}
 
         {gameState.gameOver && (
           <GameOverSection
@@ -358,6 +346,7 @@ function GameBoard({ onRestart }: { onRestart: () => void }) {
           title={errorModal.title}
           message={errorModal.message}
           onClose={closeErrorModal}
+          autoDismissMs={errorModal.autoDismissMs}
         />
       </View>
     </SafeAreaView>
@@ -452,8 +441,12 @@ const styles = StyleSheet.create({
   playerCapturedArea: {
     alignItems: 'center',
     justifyContent: 'center',
-    minWidth: 60,
-    paddingLeft: 8,
+    minWidth: 80,
+    paddingLeft: 12,
+    paddingRight: 8,
+    paddingVertical: 8,
+    marginLeft: 8,
+    marginRight: 4,
   },
   playerLabel: {
     fontSize: 16,
@@ -486,40 +479,36 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: 'bold',
   },
-  roundTransition: {
+  // Removed roundTransition styles - using ErrorModal for round transitions instead
+  gameOverSection: {
     position: 'absolute',
-    top: '50%',
-    left: '50%',
-    transform: [{ translateX: -100 }, { translateY: -50 }],
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-    padding: 20,
-    borderRadius: 10,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#1B5E20', // Casino green background
+    justifyContent: 'center',
     alignItems: 'center',
+    padding: 20,
     zIndex: 1000,
   },
-  roundTransitionTitle: {
-    fontSize: 24,
+  gameOverTitle: {
+    fontSize: 32,
     fontWeight: 'bold',
-    color: '#FFFFFF',
+    color: '#FFD700', // Gold text
+    textAlign: 'center',
     marginBottom: 10,
+    textShadowColor: '#000',
+    textShadowOffset: { width: 2, height: 2 },
+    textShadowRadius: 4,
   },
-  roundTransitionText: {
-    fontSize: 16,
+  gameOverSubtitle: {
+    fontSize: 18,
+    fontWeight: '600',
     color: '#FFFFFF',
     textAlign: 'center',
-  },
-  gameOverSection: {
-    backgroundColor: 'rgba(0, 0, 0, 0.9)',
-    padding: 20,
-    margin: 10,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  gameOverTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 20,
+    marginBottom: 30,
+    opacity: 0.9,
   },
   gameOverText: {
     fontSize: 16,
@@ -530,58 +519,140 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-around',
     width: '100%',
-    marginBottom: 20,
+    marginBottom: 30,
   },
   playerScoreColumn: {
     flex: 1,
     alignItems: 'center',
-    paddingHorizontal: 10,
+    paddingHorizontal: 15,
+    backgroundColor: '#2E7D32',
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#FFD700',
+    padding: 15,
+    marginHorizontal: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 6,
   },
   playerScoreTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 10,
+    color: '#FFD700',
+    marginBottom: 15,
+    textShadowColor: '#000',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
   },
   pointsTally: {
     alignItems: 'center',
-    marginBottom: 15,
+    marginBottom: 20,
+    backgroundColor: '#1B5E20',
+    borderRadius: 10,
+    padding: 10,
+    minWidth: 80,
   },
   pointsLabel: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#FFFFFF',
     marginBottom: 5,
+    opacity: 0.8,
   },
   totalScore: {
-    fontSize: 32,
+    fontSize: 36,
     fontWeight: 'bold',
-    color: '#4CAF50',
+    color: '#FFD700',
+    textShadowColor: '#000',
+    textShadowOffset: { width: 2, height: 2 },
+    textShadowRadius: 4,
   },
   scoreBreakdown: {
     alignItems: 'flex-start',
+    width: '100%',
   },
   scoreItem: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#FFFFFF',
-    marginBottom: 3,
+    marginBottom: 4,
+    opacity: 0.9,
+    textAlign: 'center',
+  },
+  winnerContainer: {
+    backgroundColor: '#2E7D32',
+    borderRadius: 15,
+    borderWidth: 2,
+    borderColor: '#FFD700',
+    padding: 15,
+    marginBottom: 30,
+    minWidth: 200,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 8,
   },
   winnerDeclaration: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#4CAF50',
-    marginBottom: 20,
+    color: '#FFD700',
     textAlign: 'center',
+    textShadowColor: '#000',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+    paddingHorizontal: 20,
   },
   playAgainButton: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#FFD700',
+    borderRadius: 15,
+    borderWidth: 3,
+    borderColor: '#B8860B',
     paddingHorizontal: 30,
     paddingVertical: 15,
-    borderRadius: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 10,
+    minWidth: 140,
   },
   playAgainButtonText: {
+    color: '#2E7D32',
+    fontSize: 18,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    textShadowColor: '#000',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+  },
+  newGameButton: {
+    backgroundColor: '#FF6B35',
+    borderRadius: 15,
+    borderWidth: 3,
+    borderColor: '#B8860B',
+    paddingHorizontal: 30,
+    paddingVertical: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 10,
+    minWidth: 140,
+  },
+  newGameButtonText: {
     color: '#FFFFFF',
     fontSize: 18,
     fontWeight: 'bold',
+    textAlign: 'center',
+    textShadowColor: '#000',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
   },
 });
 

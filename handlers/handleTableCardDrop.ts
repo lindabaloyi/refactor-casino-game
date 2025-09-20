@@ -82,18 +82,8 @@ export const handleTableCardDrop = (
   // Step 2: Add the card to the target on the table
 
   // A.0: Dropped opponent's card on empty area to create single-card temp build
-  // Only allowed if player has an active build
+  // ANY player can stage opponent's cards as temp builds for strategic flexibility
   if ((!targetInfo || !targetInfo.type) && draggedSource === 'opponentCapture') {
-    // Check if player has an active build
-    const playerHasActiveBuild = tableCards.some(item =>
-      (item as any).type === 'build' && (item as any).owner === currentPlayer
-    );
-
-    if (!playerHasActiveBuild) {
-      showError("You can only create temp builds from opponent's cards if you have an active build.");
-      return currentGameState;
-    }
-
     // CASINO RULE: Players can only have one temp build active at a time
     const playerAlreadyHasTempStack = tableCards.some(
       s => (s as TemporaryStack).type === 'temporary_stack' && (s as TemporaryStack).owner === currentPlayer

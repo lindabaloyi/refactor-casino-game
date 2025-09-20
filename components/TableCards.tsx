@@ -74,6 +74,10 @@ const BuildStack = memo(({ build, onDropStack, onCardPress = () => {} }: BuildSt
     [onDropStack, build.buildId]
   );
 
+  const getPlayerColor = (player: number) => {
+    return player === 0 ? '#FF5722' : '#2196F3';
+  };
+
   return (
     <View style={styles.build}>
       <CardStack
@@ -83,7 +87,7 @@ const BuildStack = memo(({ build, onDropStack, onCardPress = () => {} }: BuildSt
         buildValue={build.value}
         isBuild={true}
       />
-      <View style={styles.buildOwnerTag}>
+      <View style={[styles.buildOwnerTag, { backgroundColor: getPlayerColor(build.owner) }]}>
         <Text style={styles.buildOwnerText}>P{build.owner + 1}</Text>
       </View>
     </View>

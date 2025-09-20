@@ -106,6 +106,7 @@ export interface ErrorModalState {
   visible: boolean;
   title: string;
   message: string;
+  autoDismissMs?: number;
 }
 
 // ===== VALIDATION TYPES =====
@@ -127,7 +128,7 @@ export interface ComboSortingValidation {
 export interface NotificationFunctions {
   showError: (message: string) => void;
   showWarning: (message: string) => void;
-  showInfo: (message: string) => void;
+  showInfo: (message: string, autoDismissMs?: number) => void;
 }
 
 export interface ErrorInfo {

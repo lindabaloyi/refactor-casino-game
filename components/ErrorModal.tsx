@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, Modal, TouchableOpacity, StyleSheet } from 'react-native';
 
 type ErrorModalProps = {
@@ -6,9 +6,21 @@ type ErrorModalProps = {
   title: string;
   message: string;
   onClose: () => void;
+  autoDismissMs?: number;
 };
 
-const ErrorModal: React.FC<ErrorModalProps> = ({ visible, title, message, onClose }) => {
+const ErrorModal: React.FC<ErrorModalProps> = ({ visible, title, message, onClose, autoDismissMs }) => {
+  // Auto-dismiss functionality
+  useEffect(() => {
+    if (visible && autoDismissMs && autoDismissMs > 0) {
+      const timer = setTimeout(() => {
+        onClose();
+      }, autoDismissMs);
+
+      return () => clearTimeout(timer);
+    }
+  }, [visible, autoDismissMs, onClose]);
+
   return (
     <Modal
       visible={visible}
