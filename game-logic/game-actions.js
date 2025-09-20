@@ -199,7 +199,22 @@ export const handleCreateBuildFromStack = (gameState, draggedItem, stack) => {
 
 
   // Maintain consistent ordering with temp builds - bigger cards at index 0 (bottom of pile)
-  const allCardsInBuild = [...stack.cards, handCard].sort((a, b) => rankValue(b.rank) - rankValue(a.rank));
+  // EXCEPTION: Opponent's equal-value capture cards should not be sorted - they stay where player placed them
+  const allCardsInBuild = [...stack.cards, handCard];
+
+  // Separate opponent's equal-value capture cards from other cards for sorting
+  const opponentEqualValueCards = allCardsInBuild.filter(card =>
+    card.source === 'opponentCapture' && rankValue(card.rank) === newBuildValue
+  );
+  const otherCards = allCardsInBuild.filter(card =>
+    !(card.source === 'opponentCapture' && rankValue(card.rank) === newBuildValue)
+  );
+
+  // Sort only the other cards, keep opponent's equal-value cards in their original positions
+  const sortedOtherCards = otherCards.sort((a, b) => rankValue(b.rank) - rankValue(a.rank));
+
+  // Reconstruct the array: opponent's equal-value cards first (in their original order), then sorted other cards
+  const finalCardsInBuild = [...opponentEqualValueCards, ...sortedOtherCards];
 
   // 2. Create the new build object
   const newBuild = {
@@ -989,10 +1004,14 @@ export const handleFinalizeStagingStack = (gameState, stack) => {
   // Only one possible build, so create it.
   const buildValue = possibleBuilds[0];
 
+  // Preserve temp build arrangement: opponent's equal-value cards stay in their positions
+  // Only sort cards that don't meet the equal-value capture criteria
+  const finalCardsInBuild = stack.cards.map(({ source, ...card }) => card); // Remove source property for final build
+
   const newBuild = {
     buildId: generateBuildId(),
     type: 'build',
-    cards: stack.cards.map(({ source, ...card }) => card).sort((a, b) => rankValue(b.rank) - rankValue(a.rank)),
+    cards: finalCardsInBuild.map(({ source, ...card }) => card), // Remove source property for final build
     value: buildValue,
     owner: currentPlayer,
     isExtendable: true,
@@ -1022,8 +1041,8 @@ export const handleCreateBuildWithValue = (gameState, stack, buildValue) => {
   // 1. Get the cards that make up the build from the stack
   const initialBuildCards = stack.cards.map(({ source, ...card }) => card);
 
-  // Create the build using only the cards from the stack
-  const finalBuildCards = [...initialBuildCards].sort((a, b) => rankValue(b.rank) - rankValue(a.rank));
+  // Preserve temp build arrangement: maintain exact order from temp stack
+  const finalBuildCards = initialBuildCards;
 
   const newBuild = {
     buildId: generateBuildId(),
