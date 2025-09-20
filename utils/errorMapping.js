@@ -70,12 +70,9 @@ export const getErrorInfo = (message) => {
     };
   }
 
-  if (lowerMessage.includes('stack') && lowerMessage.includes('invalid')) {
-    return {
-      title: 'Invalid Move',
-      message: 'Stack combination is not valid for this action.'
-    };
-  }
+  // Removed overly broad error mapping for stack operations
+  // Players should be able to freely drag opponent's cards to generate combos
+  // Specific validation errors will be handled by individual game logic functions
 
   // Source/state errors
   if (lowerMessage.includes('find') || lowerMessage.includes('not found')) {

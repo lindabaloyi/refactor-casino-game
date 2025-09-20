@@ -80,6 +80,48 @@ export const handleTableCardDrop = (
   }
 
   // Step 2: Add the card to the target on the table
+
+  // A.0: Dropped opponent's card on empty area to create single-card temp build
+  // Only allowed if player has an active build
+  if ((!targetInfo || !targetInfo.type) && draggedSource === 'opponentCapture') {
+    // Check if player has an active build
+    const playerHasActiveBuild = tableCards.some(item =>
+      (item as any).type === 'build' && (item as any).owner === currentPlayer
+    );
+
+    if (!playerHasActiveBuild) {
+      showError("You can only create temp builds from opponent's cards if you have an active build.");
+      return currentGameState;
+    }
+
+    // CASINO RULE: Players can only have one temp build active at a time
+    const playerAlreadyHasTempStack = tableCards.some(
+      s => (s as TemporaryStack).type === 'temporary_stack' && (s as TemporaryStack).owner === currentPlayer
+    );
+    if (playerAlreadyHasTempStack) {
+      showError("You can only have one staging stack at a time.");
+      return currentGameState;
+    }
+
+    // Create single-card temp build from opponent's card
+    const newStack: TemporaryStack = {
+      stackId: `temp-${Date.now()}`,
+      type: 'temporary_stack',
+      cards: [{
+        ...draggedCard,
+        source: draggedSource,
+        rank: draggedCard.rank,
+        suit: draggedCard.suit
+      }],
+      owner: currentPlayer,
+    };
+
+    // Add the new temp build to table
+    const finalTableCards = [...tableCards, newStack];
+
+    return { ...currentGameState, tableCards: finalTableCards, playerCaptures: newPlayerCaptures };
+  }
+
   // A.1: Dropped on a loose card to create a new stack
   if (targetInfo.type === 'loose') {
     const targetCard = tableCards.find(c => !(c as any).type && getCardId(c as Card) === targetInfo.cardId) as Card;

@@ -105,8 +105,32 @@ export const validateComplexCapture = (stagedCards, captureCard) => {
  * @returns {object} Validation result with valid flag and message.
  */
 export const validateTrail = (tableCards, card, currentPlayer, round) => {
-  // Removed restrictive trail validation that was interfering with legitimate captures
-  // Players should be able to trail cards freely without build ownership restrictions
+  // CASINO RULE: Players cannot trail while they have an active build (first round only)
+  if (round === 1) {
+    const playerHasActiveBuild = tableCards.some(
+      item => item.type === 'build' && item.owner === currentPlayer
+    );
+
+    if (playerHasActiveBuild) {
+      return {
+        valid: false,
+        message: "Cannot trail while you own a build. Capture or build instead."
+      };
+    }
+  }
+
+  // CASINO RULE: Players can only have one active build at a time
+  const playerHasActiveBuild = tableCards.some(
+    item => item.type === 'build' && item.owner === currentPlayer
+  );
+
+  if (playerHasActiveBuild) {
+    return {
+      valid: false,
+      message: "You can only have one build at a time."
+    };
+  }
+
   return { valid: true };
 };
 

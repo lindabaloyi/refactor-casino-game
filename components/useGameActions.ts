@@ -217,10 +217,17 @@ export const useGameActions = (): GameActionsReturn => {
   }, [modalHandleAction, executeAction]);
 
   const handleDropOnCard = useCallback((draggedItem: DraggedItem, targetInfo: TargetInfo): void => {
-    console.log(`🎯 DROP ON CARD: ${draggedItem.source} -> ${targetInfo.type}`, { draggedItem, targetInfo });
-    
-    if (!targetInfo || !draggedItem) {
-      console.warn("Drop action is missing target or dragged item information.");
+    console.log(`🎯 DROP ON CARD: ${draggedItem.source} -> ${targetInfo?.type || 'empty'}`, { draggedItem, targetInfo });
+
+    if (!draggedItem) {
+      console.warn("Drop action is missing dragged item information.");
+      return;
+    }
+
+    // Allow empty area drops for opponent's cards if player has active build
+    const isEmptyAreaDrop = !targetInfo || !targetInfo.type;
+    if (isEmptyAreaDrop && draggedItem.source !== 'opponentCapture') {
+      console.warn("Empty area drops are only allowed for opponent's cards.");
       return;
     }
     // This check is now more robust. It allows items that are either a single card, a stack, or a temporary stack.
@@ -242,6 +249,12 @@ export const useGameActions = (): GameActionsReturn => {
 
       // Route to appropriate handler based on source type
       if (draggedSource === 'table' || draggedSource === 'opponentCapture' || draggedSource === 'captured') {
+        // Handle empty area drops for opponent's cards (create single-card temp builds)
+        if (isEmptyAreaDrop && draggedSource === 'opponentCapture') {
+          // Create empty targetInfo for single-card temp build creation
+          const emptyTargetInfo = { type: null };
+          return handleTableCardDrop(draggedItem, emptyTargetInfo as any, currentGameState, showError);
+        }
         return handleTableCardDrop(draggedItem, targetInfo, currentGameState, showError);
       } else if (draggedSource === 'hand') {
         // Handle hand card drops with inline build logic to prevent trail fallback
