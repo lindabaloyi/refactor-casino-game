@@ -1,0 +1,252 @@
+import React, { useState, useRef } from 'react';
+import { View, StyleSheet, PanResponder, Animated, ViewStyle } from 'react-native';
+import Card from './card';
+import { Card as CardType, DraggedItem } from '../types/gameTypes';
+
+interface DropPosition {
+  x: number;
+  y: number;
+  handled: boolean;
+}
+
+interface DropZone {
+  bounds: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+  onDrop: (draggedItem: DraggedItem) => boolean;
+  stackId?: string;
+}
+
+interface DraggableCardProps {
+  card: CardType;
+  onDragStart?: (card: CardType) => void;
+  onDragEnd?: (draggedItem: DraggedItem, dropPosition: DropPosition) => void;
+  onDragMove?: (card: CardType, position: { x: number; y: number }) => void;
+  disabled?: boolean;
+  size?: 'normal' | 'small' | 'large';
+  draggable?: boolean;
+  currentPlayer?: number;
+  source?: 'hand' | 'table' | 'captured' | 'opponentCapture' | 'temporary_stack';
+  stackId?: string | null;
+}
+
+declare global {
+  var dropZones: DropZone[] | undefined;
+}
+
+const DraggableCard: React.FC<DraggableCardProps> = ({
+  card,
+  onDragStart,
+  onDragEnd,
+  onDragMove,
+  disabled = false,
+  size = 'normal',
+  draggable = true,
+  currentPlayer = 0,
+  source = 'hand',
+  stackId = null
+}) => {
+  // CORRUPTION PROTECTION: Ensure currentPlayer is always valid
+  const safeCurrentPlayer = (currentPlayer >= 0 && currentPlayer <= 1) ? currentPlayer : 0;
+  
+  if (safeCurrentPlayer !== currentPlayer) {
+    console.error(`🚨 CORRUPTED CURRENT PLAYER DETECTED: ${currentPlayer} fixed to ${safeCurrentPlayer} for card ${card.rank}${card.suit}`);
+  }
+  const [isDragging, setIsDragging] = useState<boolean>(false);
+  const [hasStartedDrag, setHasStartedDrag] = useState<boolean>(false);
+  const pan = useRef(new Animated.ValueXY()).current;
+  const dragThreshold = 8; // Minimum distance to start actual drag - optimized for instant response
+
+  const panResponder = PanResponder.create({
+    onStartShouldSetPanResponder: () => draggable && !disabled,
+    onStartShouldSetPanResponderCapture: () => false, // Don't capture immediately
+    onMoveShouldSetPanResponder: (event, gestureState) => {
+      // Only activate drag if moved beyond threshold
+      if (!draggable || disabled) return false;
+      const distance = Math.sqrt(gestureState.dx * gestureState.dx + gestureState.dy * gestureState.dy);
+      return distance > dragThreshold;
+    },
+    
+    onPanResponderGrant: (event) => {
+      if (disabled || !draggable) return;
+      // Don't set dragging immediately - wait for actual movement
+      setHasStartedDrag(false);
+    },
+    
+    onPanResponderMove: (event, gestureState) => {
+      if (disabled || !draggable) return;
+      
+      // Check if we've crossed the drag threshold
+      const distance = Math.sqrt(gestureState.dx * gestureState.dx + gestureState.dy * gestureState.dy);
+      
+      if (distance > dragThreshold && !hasStartedDrag) {
+        // First time crossing threshold - start the drag
+        setHasStartedDrag(true);
+        setIsDragging(true);
+        pan.setOffset({
+          x: (pan.x as any)._value,
+          y: (pan.y as any)._value,
+        });
+        
+        if (onDragStart) {
+          onDragStart(card);
+        }
+      }
+      
+      // Only animate if we've started dragging
+      if (hasStartedDrag) {
+        // Use Animated.event for smooth performance
+        Animated.event([null, { dx: pan.x, dy: pan.y }], {
+          useNativeDriver: false,
+        })(event, gestureState);
+        
+        // Only call onDragMove occasionally to avoid performance issues
+        if (onDragMove && gestureState.dx % 5 === 0) {
+          onDragMove(card, {
+            x: event.nativeEvent.pageX,
+            y: event.nativeEvent.pageY
+          });
+        }
+      }
+    },
+    
+    onPanResponderRelease: (event, gestureState) => {
+      if (disabled || !draggable) return;
+      
+      // Save the drag state before resetting it
+      const wasActuallyDragging = hasStartedDrag;
+      
+      setIsDragging(false);
+      setHasStartedDrag(false);
+      
+      // Only process drop if we actually started dragging
+      if (!wasActuallyDragging) {
+        // Just a tap, not a drag - do nothing
+        return;
+      }
+      
+      pan.flattenOffset();
+      
+      const dropPosition: DropPosition = {
+        x: event.nativeEvent.pageX,
+        y: event.nativeEvent.pageY,
+        handled: false
+      };
+      
+      // Check if dropped on any registered drop zones with tolerance
+      if (global.dropZones && global.dropZones.length > 0) {
+        let bestZone: DropZone | null = null;
+        let closestDistance = Infinity;
+        
+        // DEBUG: Log drop attempt
+        console.log(`[DragDrop] Checking ${global.dropZones.length} drop zones for position (${dropPosition.x}, ${dropPosition.y})`);
+        
+        // IMPROVED: Find the best drop zone with priority system and tolerance
+        for (const zone of global.dropZones) {
+          const { x, y, width, height } = zone.bounds;
+          
+          // Increased tolerance buffer for mobile (40px on all sides)
+          const tolerance = 40;
+          const expandedX = x - tolerance;
+          const expandedY = y - tolerance;
+          const expandedWidth = width + (tolerance * 2);
+          const expandedHeight = height + (tolerance * 2);
+          
+          const isInside = dropPosition.x >= expandedX && dropPosition.x <= expandedX + expandedWidth &&
+                          dropPosition.y >= expandedY && dropPosition.y <= expandedY + expandedHeight;
+          
+          // DEBUG: Log zone checking
+          console.log(`[DragDrop] Zone ${zone.stackId || 'unknown'}: bounds(${x},${y},${width}x${height}) expanded(${expandedX},${expandedY},${expandedWidth}x${expandedHeight}) inside:${isInside}`);
+          
+          if (isInside) {
+            // Calculate distance to center of drop zone for best match
+            const centerX = x + width / 2;
+            const centerY = y + height / 2;
+            const distance = Math.sqrt(
+              Math.pow(dropPosition.x - centerX, 2) +
+              Math.pow(dropPosition.y - centerY, 2)
+            );
+            
+            // PRIORITY SYSTEM: Prefer smaller zones (cards) over larger zones (general areas)
+            // Calculate zone area for priority - smaller areas get priority boost
+            const zoneArea = width * height;
+            
+            // Priority score: lower is better
+            // Small zones (cards) get significant priority boost vs large zones (table areas)
+            const priorityScore = distance + (zoneArea > 10000 ? 1000 : 0);
+            
+            console.log(`[DragDrop] Zone ${zone.stackId || 'unknown'}: distance=${distance.toFixed(1)} area=${zoneArea} priority=${priorityScore.toFixed(1)}`);
+            
+            if (priorityScore < closestDistance) {
+              closestDistance = priorityScore;
+              bestZone = zone;
+            }
+          }
+        }
+        
+        // Try to drop on the closest zone found
+        if (bestZone) {
+          console.log(`[DragDrop] Selected best zone: ${bestZone.stackId || 'unknown'}`);
+          console.log(`🔍 DRAG DEBUG: Creating draggedItem with currentPlayer=${safeCurrentPlayer} for card ${card.rank}${card.suit}`);
+          const draggedItem: DraggedItem = {
+            card,
+            source,
+            player: safeCurrentPlayer,
+            stackId: stackId || undefined
+          };
+          if (bestZone.onDrop(draggedItem)) {
+            console.log(`[DragDrop] Drop handled successfully`);
+            dropPosition.handled = true;
+          } else {
+            console.log(`[DragDrop] Drop rejected by zone`);
+          }
+        } else {
+          console.log(`[DragDrop] No suitable drop zone found`);
+        }
+      } else {
+        console.log(`[DragDrop] No drop zones registered`);
+      }
+      
+      // Smoothly return to original position
+      Animated.spring(pan, {
+        toValue: { x: 0, y: 0 },
+        useNativeDriver: false,
+      }).start();
+      
+      if (onDragEnd) {
+        console.log(`🔍 DRAG END: Creating draggedItem with currentPlayer=${safeCurrentPlayer} for card ${card.rank}${card.suit}`);
+        const draggedItem: DraggedItem = {
+          card,
+          source,
+          player: safeCurrentPlayer,
+          stackId: stackId || undefined
+        };
+        onDragEnd(draggedItem, dropPosition);
+      }
+    },
+  });
+
+  if (!draggable) {
+    return <Card card={card} size={size} disabled={disabled} />;
+  }
+
+  return (
+    <Animated.View
+      {...panResponder.panHandlers}
+      style={[
+        {
+          transform: pan.getTranslateTransform(),
+          zIndex: isDragging ? 1000 : 1,
+          elevation: isDragging ? 10 : 5,
+        }
+      ]}
+    >
+      <Card card={card} size={size} disabled={disabled} />
+    </Animated.View>
+  );
+};
+
+export default DraggableCard;
